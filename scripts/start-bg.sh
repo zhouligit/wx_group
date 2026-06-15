@@ -18,12 +18,9 @@ if [ "${SKIP_BUILD:-0}" != "1" ]; then
   npm run build:web
 fi
 
-if [ ! -f "$ROOT/server/dist/main.js" ]; then
-  if [ -f "$ROOT/server/dist/src/main.js" ]; then
-    echo "检测到旧构建路径 server/dist/src/main.js，请重新执行: npm run build:server" >&2
-  else
-    echo "server/dist/main.js 不存在，请先 npm run build:server" >&2
-  fi
+if [ ! -f "$ROOT/server/dist/main.js" ] && [ ! -f "$ROOT/server/dist/src/main.js" ]; then
+  echo "server/dist/main.js 不存在，请先 npm run build:server" >&2
+  echo "可手动验证: cd server && rm -rf dist tsconfig.tsbuildinfo && npm run build" >&2
   exit 1
 fi
 
@@ -80,7 +77,7 @@ if [ -f logs/api.pid ] && kill -0 "$(cat logs/api.pid)" 2>/dev/null; then
   echo "API 已在运行 (pid $(cat logs/api.pid))"
 else
   cd "$ROOT/server"
-  nohup node dist/main.js >> "$ROOT/logs/api.log" 2>&1 &
+  nohup bash "$ROOT/scripts/start-api.sh" >> "$ROOT/logs/api.log" 2>&1 &
   echo $! > "$ROOT/logs/api.pid"
   echo "API 已启动 pid $(cat "$ROOT/logs/api.pid")"
 fi

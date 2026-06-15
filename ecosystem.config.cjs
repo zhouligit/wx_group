@@ -34,8 +34,9 @@ module.exports = {
   apps: [
     {
       name: 'wx-api',
-      cwd: path.join(root, 'server'),
-      script: 'dist/main.js',
+      cwd: root,
+      script: path.join(root, 'scripts/start-api.sh'),
+      interpreter: 'bash',
       instances: 1,
       autorestart: true,
       max_memory_restart: '512M',
