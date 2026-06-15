@@ -1,3 +1,8 @@
+import { loadEnvFiles, resolveEnvFilePaths } from './config/env';
+
+// 尽早加载 .env，供 Prisma 与 Nest 使用
+loadEnvFiles();
+
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';

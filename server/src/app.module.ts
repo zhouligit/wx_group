@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
+import { resolveEnvFilePaths } from './config/env';
 import { PrismaModule } from './prisma/prisma.module';
 import { RedisModule } from './redis/redis.module';
 import { HealthModule } from './modules/health/health.module';
@@ -20,7 +21,13 @@ import { AdminModule } from './modules/admin/admin.module';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: (() => {
+        const paths = resolveEnvFilePaths();
+        return paths.length > 0 ? paths : ['.env', '../.env'];
+      })(),
+    }),
     ScheduleModule.forRoot(),
     PrismaModule,
     RedisModule,

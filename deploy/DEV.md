@@ -3,7 +3,11 @@
 ## 1. 启动 MySQL + Redis
 
 ```bash
+# ⚠️ 必须先创建 .env（否则报 DATABASE_URL not found）
 cp .env.example .env
+
+# 按服务器实际情况修改 DATABASE_URL，例如：
+# DATABASE_URL=mysql://wxgroup:你的密码@127.0.0.1:3306/wx_group
 
 # 推荐：自动选择 compose 工具
 npm run docker:up
