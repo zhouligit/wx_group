@@ -4,8 +4,41 @@
 
 ```bash
 cp .env.example .env
-docker compose up -d mysql redis
+
+# 推荐：自动选择 compose 工具
+npm run docker:up
 ```
+
+或手动执行（按你的环境选一种）：
+
+```bash
+# Docker Compose V2（Docker Desktop）
+docker compose up -d mysql redis
+
+# docker-compose V1（Podman 用户常用，推荐）
+docker-compose up -d mysql redis
+
+# podman-compose
+podman-compose up -d mysql redis
+```
+
+### Podman 报错 `unknown shorthand flag: 'd' in -d`
+
+说明当前 `docker` 实际是 Podman 模拟，且不支持 `docker compose` 子命令。请改用：
+
+```bash
+docker-compose up -d mysql redis
+```
+
+若未安装：
+
+```bash
+brew install docker-compose
+# 或
+brew install podman-compose
+```
+
+可选：创建 `/etc/containers/nodocker` 可关闭 Podman 的 docker 模拟提示（需 sudo）。
 
 ## 2. 安装依赖
 
