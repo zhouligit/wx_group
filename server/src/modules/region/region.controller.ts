@@ -16,7 +16,7 @@ export class RegionController {
       parentId ? Number(parentId) : undefined,
     );
     return ok(
-      rows.map((r) => ({
+      rows.map((r: { id: bigint; name: string; level: number; parentId: bigint | null }) => ({
         id: Number(r.id),
         name: r.name,
         level: r.level,

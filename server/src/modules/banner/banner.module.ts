@@ -14,7 +14,7 @@ export class BannerController {
       orderBy: { sort: 'asc' },
     });
     return ok(
-      rows.map((b) => ({
+      rows.map((b: { id: bigint; imageUrl: string; linkUrl: string | null; sort: number }) => ({
         id: Number(b.id),
         imageUrl: b.imageUrl,
         linkUrl: b.linkUrl,

@@ -1,6 +1,18 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 
+type GroupListEntity = {
+  id: bigint;
+  name: string;
+  coverUrl: string | null;
+  regionId: bigint;
+  memberCount: number | null;
+  status: number;
+  description?: string | null;
+  region?: { name: string } | null;
+  groupTags?: { tag: { name: string } }[];
+};
+
 @Injectable()
 export class EntitlementService {
   constructor(private prisma: PrismaService) {}
@@ -59,7 +71,7 @@ export class GroupService {
       this.prisma.group.count({ where }),
     ]);
     return {
-      list: list.map((g) => this.toListItem(g)),
+      list: list.map((g: GroupListEntity) => this.toListItem(g)),
       total,
       page: params.page,
       pageSize: params.pageSize,
@@ -96,23 +108,14 @@ export class GroupService {
     return { url, expiresAt: expiresAt.toISOString() };
   }
 
-  private toListItem(group: {
-    id: bigint;
-    name: string;
-    coverUrl: string | null;
-    regionId: bigint;
-    memberCount: number | null;
-    status: number;
-    region?: { name: string };
-    groupTags?: { tag: { name: string } }[];
-  }) {
+  private toListItem(group: GroupListEntity) {
     return {
       id: Number(group.id),
       name: group.name,
       coverUrl: group.coverUrl,
       regionId: Number(group.regionId),
       regionName: group.region?.name ?? '',
-      tags: group.groupTags?.map((gt) => gt.tag.name) ?? [],
+      tags: group.groupTags?.map((gt: { tag: { name: string } }) => gt.tag.name) ?? [],
       memberCount: group.memberCount,
       status: group.status,
     };

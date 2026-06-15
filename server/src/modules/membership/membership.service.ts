@@ -16,7 +16,7 @@ export class MembershipService {
       active: !!membership,
       type: membership?.type ?? null,
       expireAt: membership?.expireAt.toISOString() ?? null,
-      unlockedGroupIds: unlocks.map((u) => Number(u.groupId)),
+      unlockedGroupIds: unlocks.map((u: { groupId: bigint }) => Number(u.groupId)),
     };
   }
 

@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+
+type CommissionRow = { amount: unknown; status: number };
 
 @Injectable()
 export class DistributorService {
@@ -36,11 +37,16 @@ export class DistributorService {
     const dist = await this.prisma.distributor.findUnique({ where: { userId } });
     if (!dist) throw new BadRequestException('NOT_DISTRIBUTOR');
 
-    const commissions = await this.prisma.commission.findMany({ where: { distId: dist.id } });
-    const totalCommission = commissions.reduce((s, c) => s + Number(c.amount), 0);
+    const commissions = (await this.prisma.commission.findMany({
+      where: { distId: dist.id },
+    })) as CommissionRow[];
+    const totalCommission = commissions.reduce(
+      (s: number, c: CommissionRow) => s + Number(c.amount),
+      0,
+    );
     const pendingCommission = commissions
-      .filter((c) => c.status === 0)
-      .reduce((s, c) => s + Number(c.amount), 0);
+      .filter((c: CommissionRow) => c.status === 0)
+      .reduce((s: number, c: CommissionRow) => s + Number(c.amount), 0);
 
     return {
       todayVisits: 0,
@@ -59,7 +65,7 @@ export class DistributorService {
       data: {
         distId: dist.id,
         amount: dto.amount,
-        accountInfo: dto.accountInfo as Prisma.InputJsonValue,
+        accountInfo: dto.accountInfo as object,
       },
     });
     return { id: Number(row.id), status: row.status };

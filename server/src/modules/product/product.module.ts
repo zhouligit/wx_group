@@ -14,7 +14,7 @@ export class ProductController {
       orderBy: { sort: 'asc' },
     });
     return ok(
-      rows.map((p) => ({
+      rows.map((p: { id: bigint; skuCode: string; name: string; price: unknown; durationDays: number | null }) => ({
         id: Number(p.id),
         skuCode: p.skuCode,
         name: p.name,

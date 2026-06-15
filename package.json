@@ -15,7 +15,8 @@
     "build": "npm run build:web && npm run build:admin && npm run build:server",
     "docker:up": "bash scripts/infra-up.sh mysql redis",
     "docker:down": "bash scripts/infra-down.sh",
-    "docker:logs": "docker compose logs -f 2>/dev/null || docker-compose logs -f"
+    "docker:logs": "docker compose logs -f 2>/dev/null || docker-compose logs -f",
+    "postinstall": "npm run prisma:generate -w @wx-group/server --if-present"
   },
   "engines": {
     "node": ">=20"

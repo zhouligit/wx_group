@@ -151,10 +151,13 @@ npm install
 
 ```bash
 cd server
+npx prisma generate          # 必须！否则 TS 编译报 implicit any / Prisma 类型错误
 npx prisma migrate dev --name init
 npm run prisma:seed
 cd ..
 ```
+
+> `npm install` 后会自动执行 `prisma generate`（postinstall）。若仍报 Prisma 相关 TS 错误，请手动再跑一次 `npx prisma generate`。
 
 ## 4. 启动开发服务
 

@@ -49,6 +49,13 @@ export class AdminController {
   @UseGuards(AdminAuthGuard)
   async groups() {
     const rows = await this.prisma.group.findMany({ orderBy: { id: 'desc' }, take: 50 });
-    return ok(rows.map((g) => ({ id: Number(g.id), name: g.name, status: g.status, isHot: g.isHot })));
+    return ok(
+      rows.map((g: { id: bigint; name: string; status: number; isHot: number }) => ({
+        id: Number(g.id),
+        name: g.name,
+        status: g.status,
+        isHot: g.isHot,
+      })),
+    );
   }
 }
