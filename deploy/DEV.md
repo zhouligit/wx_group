@@ -265,6 +265,23 @@ curl -I http://127.0.0.1:5173
 
 外网访问需在云安全组放行 **3000**（API）、**5173**（Web）。
 
+### 连接被拒绝 / 启动失败
+
+```bash
+npm run status:bg          # 看 wx-api、wx-web 是否 online
+npm run logs:bg            # 看错误日志
+tail -50 logs/api-error.log
+tail -50 logs/web-error.log
+```
+
+常见原因：
+
+| 现象 | 处理 |
+|------|------|
+| `dist/main.js 不存在` | `npm run build:server` 后重试 |
+| `Can't reach database server` | 检查 `.env` 里 `DATABASE_URL` 能否连上 MySQL |
+| PM2 显示 errored | `npm run stop:bg && npm run start:bg` |
+
 开机自启（PM2）：
 
 ```bash
