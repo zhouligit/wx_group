@@ -153,29 +153,42 @@ npm install
 
 ## 3. 初始化数据库
 
-`.env` 可放在 **项目根目录** `/opt/wx_group/.env` 或 **`server/.env`**。  
-Prisma CLI 默认只读 `server/.env`，本项目已用 `scripts/with-env.sh` 自动加载根目录 `.env`。
+`.env` 可放在 **项目根目录** `/opt/wx_group/.env` 或 **`server/.env`**。
 
 ```bash
-# 确保 .env 已配置 DATABASE_URL，例如：
+# DATABASE_URL 示例（远程库）：
 # DATABASE_URL=mysql://wx_group:密码@106.13.108.88:3306/wx_group_db
 
 cd /opt/wx_group/server
 npm run prisma:generate
-npm run prisma:migrate -- --name init
+npm run prisma:push      # 推荐：远程库用户通常无 CREATE DATABASE 权限
 npm run prisma:seed
 cd ..
 ```
 
-测试连接（不要用裸 `npx prisma`，请用 npm script）：
+### 报错 P3014 / shadow database
+
+`prisma migrate dev` 需要 MySQL 用户有 **CREATE DATABASE** 权限（用于 shadow 库）。  
+云数据库 / 共享 MySQL 的 `wx_group` 用户一般**只有单库权限**，请改用：
 
 ```bash
-cd server
-npm run prisma:pull -- --print
+npm run prisma:push    # 直接同步表结构，不需要 shadow 库
 ```
 
-> 若仍报 `DATABASE_URL not found`，检查 `/opt/wx_group/.env` 是否存在，或复制一份：
-> `cp /opt/wx_group/.env /opt/wx_group/server/.env`
+若你有 DBA 权限，也可给用户授权后再 migrate：
+
+```sql
+GRANT CREATE, DROP, ALTER, INDEX ON *.* TO 'wx_group'@'%';
+-- 或仅允许在同一实例创建 shadow 库
+```
+
+本地开发机（有完整权限）才适合用 `npm run prisma:migrate`。
+
+生产部署（已有 migrations 目录时）用：
+
+```bash
+npm run prisma:deploy   # 不需要 shadow 库
+```
 
 ## 4. 启动开发服务
 

@@ -12,6 +12,8 @@
     "start:prod": "node dist/main",
     "prisma:generate": "bash scripts/with-env.sh prisma generate",
     "prisma:migrate": "bash scripts/with-env.sh prisma migrate dev",
+    "prisma:deploy": "bash scripts/with-env.sh prisma migrate deploy",
+    "prisma:push": "bash scripts/with-env.sh prisma db push",
     "prisma:seed": "bash scripts/with-env.sh ts-node prisma/seed.ts",
     "prisma:pull": "bash scripts/with-env.sh prisma db pull"
   },
