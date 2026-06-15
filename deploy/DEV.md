@@ -40,6 +40,58 @@ brew install podman-compose
 
 可选：创建 `/etc/containers/nodocker` 可关闭 Podman 的 docker 模拟提示（需 sudo）。
 
+### Linux `apt` 报错 `Unmet dependencies` / `node-yallist`
+
+**不要用 `apt install docker-compose`**，Debian/Ubuntu 源里的包常依赖 `nodejs` 等，容易和系统已有 Node 冲突。
+
+**方案 A：用 pip 安装（推荐，不碰 apt 的 node 包）**
+
+```bash
+pip install docker-compose
+# 或 Podman 环境
+pip install podman-compose
+
+docker-compose up -d mysql redis
+```
+
+**方案 B：下载独立二进制（无需 apt）**
+
+```bash
+sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" \
+  -o /usr/local/bin/docker-compose
+sudo chmod +x /usr/local/bin/docker-compose
+docker-compose up -d mysql redis
+```
+
+**方案 C：修复 apt 后再装其他包（若系统 apt 已损坏）**
+
+```bash
+sudo apt --fix-broken install
+sudo apt update
+sudo apt upgrade
+```
+
+**方案 D：不用 Docker，直接装 MySQL + Redis（最省事）**
+
+```bash
+sudo apt update
+sudo apt install -y mysql-server redis-server
+
+# 创建数据库与用户（按 .env.example 配置）
+sudo mysql -e "CREATE DATABASE wx_group CHARACTER SET utf8mb4;
+  CREATE USER 'wxgroup'@'localhost' IDENTIFIED BY 'wxgroup123';
+  GRANT ALL ON wx_group.* TO 'wxgroup'@'localhost';
+  FLUSH PRIVILEGES;"
+
+# .env 中 DATABASE_URL 改为：
+# mysql://wxgroup:wxgroup123@localhost:3306/wx_group
+# REDIS_URL=redis://localhost:6379
+```
+
+然后跳过 `docker:up`，直接 `npm install` → 初始化数据库 → 启动服务。
+
+**说明：** 本项目 Node 依赖请用 **nvm / fnm / 官方 Node 安装包**，不要用 `apt install nodejs npm` 与 Docker 混装。
+
 ## 2. 安装依赖
 
 ```bash
