@@ -95,8 +95,57 @@ sudo mysql -e "CREATE DATABASE wx_group CHARACTER SET utf8mb4;
 ## 2. 安装依赖
 
 ```bash
+cd /opt/wx_group   # 必须在项目根目录
 npm install
 ```
+
+### `npm error ERR_INVALID_URL`
+
+多为 **npm 全局配置或环境变量里的 URL 格式错误**（常见：registry 少了 `https://`，或 proxy 为空/乱码）。
+
+在服务器上依次执行：
+
+```bash
+# 1. 查看当前配置
+npm -v
+node -v
+npm config list
+
+# 2. 清理错误 proxy（最常见原因）
+npm config delete proxy
+npm config delete https-proxy
+npm config delete http-proxy
+unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY
+
+# 3. 设置合法 registry（必须带 https://）
+npm config set registry https://registry.npmmirror.com
+
+# 4. 若 root 的 ~/.npmrc 有乱码，可备份后重写
+cat ~/.npmrc
+# 如有 registry=xxx 且没有 https://，改成：
+# registry=https://registry.npmmirror.com
+
+# 5. 重新安装
+cd /opt/wx_group
+rm -rf node_modules apps/web/node_modules apps/admin/node_modules server/node_modules
+npm install
+```
+
+**要求：** Node ≥ 20，npm ≥ 9（`lockfileVersion: 3`）。npm 过旧请升级：
+
+```bash
+npm install -g npm@10
+# 或使用 nvm 安装 Node 20+
+```
+
+若仍失败，可删除 lock 后重装（版本可能略有浮动）：
+
+```bash
+rm -f package-lock.json
+npm install
+```
+
+项目根目录已包含 `.npmrc`，`git pull` 后会自动使用合法镜像地址。
 
 ## 3. 初始化数据库
 
@@ -109,6 +158,15 @@ cd ..
 
 ## 4. 启动开发服务
 
+**注意：** `dev:server` / `dev:web` / `dev:admin` 定义在**项目根目录** `package.json`。请先：
+
+```bash
+cd /opt/wx_group   # 或你的项目根路径
+npm install        # 必须在根目录安装（monorepo workspaces）
+```
+
+再启动（在**根目录**执行）：
+
 ```bash
 # 终端 1 - API
 npm run dev:server
@@ -118,6 +176,23 @@ npm run dev:web
 
 # 终端 3 - 管理后台
 npm run dev:admin
+```
+
+若你已在 `server/` 目录下，可直接：
+
+```bash
+cd server
+npm run start:dev
+# 或（已添加别名）
+npm run dev:server
+```
+
+生产环境启动 API：
+
+```bash
+cd server
+npm run build
+npm run start:prod
 ```
 
 | 服务 | 地址 |
