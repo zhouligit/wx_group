@@ -3,19 +3,20 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "build": "prisma generate && nest build",
+    "build": "bash scripts/with-env.sh prisma generate && nest build",
     "postinstall": "prisma generate",
     "start": "nest start",
     "start:dev": "nest start --watch",
     "dev": "nest start --watch",
     "dev:server": "nest start --watch",
     "start:prod": "node dist/main",
-    "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev",
-    "prisma:seed": "ts-node prisma/seed.ts"
+    "prisma:generate": "bash scripts/with-env.sh prisma generate",
+    "prisma:migrate": "bash scripts/with-env.sh prisma migrate dev",
+    "prisma:seed": "bash scripts/with-env.sh ts-node prisma/seed.ts",
+    "prisma:pull": "bash scripts/with-env.sh prisma db pull"
   },
   "prisma": {
-    "seed": "ts-node prisma/seed.ts"
+    "seed": "bash scripts/with-env.sh ts-node prisma/seed.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.4.15",

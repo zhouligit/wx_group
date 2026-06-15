@@ -153,15 +153,29 @@ npm install
 
 ## 3. 初始化数据库
 
+`.env` 可放在 **项目根目录** `/opt/wx_group/.env` 或 **`server/.env`**。  
+Prisma CLI 默认只读 `server/.env`，本项目已用 `scripts/with-env.sh` 自动加载根目录 `.env`。
+
 ```bash
-cd server
-npx prisma generate          # 必须！否则 TS 编译报 implicit any / Prisma 类型错误
-npx prisma migrate dev --name init
+# 确保 .env 已配置 DATABASE_URL，例如：
+# DATABASE_URL=mysql://wx_group:密码@106.13.108.88:3306/wx_group_db
+
+cd /opt/wx_group/server
+npm run prisma:generate
+npm run prisma:migrate -- --name init
 npm run prisma:seed
 cd ..
 ```
 
-> `npm install` 后会自动执行 `prisma generate`（postinstall）。若仍报 Prisma 相关 TS 错误，请手动再跑一次 `npx prisma generate`。
+测试连接（不要用裸 `npx prisma`，请用 npm script）：
+
+```bash
+cd server
+npm run prisma:pull -- --print
+```
+
+> 若仍报 `DATABASE_URL not found`，检查 `/opt/wx_group/.env` 是否存在，或复制一份：
+> `cp /opt/wx_group/.env /opt/wx_group/server/.env`
 
 ## 4. 启动开发服务
 
