@@ -1,0 +1,266 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        BigInt   @id @default(autoincrement())
+  openid    String?  @unique @db.VarChar(64)
+  unionid   String?  @db.VarChar(64)
+  phone     String?  @unique @db.VarChar(20)
+  nickname  String?  @db.VarChar(64)
+  avatar    String?  @db.VarChar(512)
+  status    Int      @default(1)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  memberships   Membership[]
+  orders        Order[]
+  groupUnlocks  GroupUnlock[]
+  distributor   Distributor?
+  distRelation  DistRelation?
+  tickets       CsTicket[]
+
+  @@map("users")
+}
+
+model Region {
+  id       BigInt   @id @default(autoincrement())
+  name     String   @db.VarChar(32)
+  level    Int
+  parentId BigInt?  @map("parent_id")
+  sort     Int      @default(0)
+  enabled  Int      @default(1)
+
+  groups Group[]
+
+  @@index([parentId])
+  @@map("regions")
+}
+
+model Tag {
+  id   BigInt @id @default(autoincrement())
+  name String @unique @db.VarChar(32)
+  sort Int    @default(0)
+
+  groupTags GroupTag[]
+
+  @@map("tags")
+}
+
+model Group {
+  id             BigInt    @id @default(autoincrement())
+  name           String    @db.VarChar(128)
+  coverUrl       String?   @map("cover_url") @db.VarChar(512)
+  regionId       BigInt    @map("region_id")
+  description    String?   @db.VarChar(512)
+  memberCount    Int?      @map("member_count")
+  qrcodePath     String    @map("qrcode_path") @db.VarChar(512)
+  qrcodeExpireAt DateTime? @map("qrcode_expire_at")
+  status         Int       @default(1)
+  isHot          Int       @default(0) @map("is_hot")
+  weight         Int       @default(0)
+  viewCount      Int       @default(0) @map("view_count")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  region       Region        @relation(fields: [regionId], references: [id])
+  groupTags    GroupTag[]
+  groupUnlocks GroupUnlock[]
+
+  @@index([regionId, isHot, weight])
+  @@index([status])
+  @@map("groups")
+}
+
+model GroupTag {
+  groupId BigInt @map("group_id")
+  tagId   BigInt @map("tag_id")
+
+  group Group @relation(fields: [groupId], references: [id])
+  tag   Tag   @relation(fields: [tagId], references: [id])
+
+  @@id([groupId, tagId])
+  @@map("group_tags")
+}
+
+model Product {
+  id           BigInt   @id @default(autoincrement())
+  skuCode      String   @unique @map("sku_code") @db.VarChar(32)
+  name         String   @db.VarChar(64)
+  price        Decimal  @db.Decimal(10, 2)
+  durationDays Int?     @map("duration_days")
+  enabled      Int      @default(1)
+  sort         Int      @default(0)
+
+  orders Order[]
+
+  @@map("products")
+}
+
+model Order {
+  id              BigInt    @id @default(autoincrement())
+  orderNo         String    @unique @map("order_no") @db.VarChar(32)
+  userId          BigInt    @map("user_id")
+  productId       BigInt    @map("product_id")
+  groupId         BigInt?   @map("group_id")
+  amount          Decimal   @db.Decimal(10, 2)
+  payStatus       Int       @default(0) @map("pay_status")
+  payChannel      String?   @map("pay_channel") @db.VarChar(16)
+  wxTransactionId String?   @map("wx_transaction_id") @db.VarChar(64)
+  distId          BigInt?   @map("dist_id")
+  paidAt          DateTime? @map("paid_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  user       User        @relation(fields: [userId], references: [id])
+  product    Product     @relation(fields: [productId], references: [id])
+  membership Membership?
+  commission Commission?
+
+  @@index([userId])
+  @@index([distId])
+  @@index([payStatus])
+  @@map("orders")
+}
+
+model Membership {
+  id       BigInt   @id @default(autoincrement())
+  userId   BigInt   @map("user_id")
+  type     String   @db.VarChar(16)
+  orderId  BigInt   @unique @map("order_id")
+  startAt  DateTime @map("start_at")
+  expireAt DateTime @map("expire_at")
+  status   Int      @default(1)
+
+  user  User  @relation(fields: [userId], references: [id])
+  order Order @relation(fields: [orderId], references: [id])
+
+  @@index([userId, expireAt])
+  @@map("memberships")
+}
+
+model GroupUnlock {
+  id         BigInt   @id @default(autoincrement())
+  userId     BigInt   @map("user_id")
+  groupId    BigInt   @map("group_id")
+  orderId    BigInt   @map("order_id")
+  unlockedAt DateTime @default(now()) @map("unlocked_at")
+
+  user  User  @relation(fields: [userId], references: [id])
+  group Group @relation(fields: [groupId], references: [id])
+
+  @@unique([userId, groupId])
+  @@map("group_unlocks")
+}
+
+model Distributor {
+  id             BigInt   @id @default(autoincrement())
+  userId         BigInt   @unique @map("user_id")
+  inviteCode     String   @unique @map("invite_code") @db.VarChar(16)
+  realName       String?  @map("real_name") @db.VarChar(32)
+  idCard         String?  @map("id_card") @db.VarChar(256)
+  status         Int      @default(0)
+  commissionRate Decimal? @map("commission_rate") @db.Decimal(5, 2)
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  user        User           @relation(fields: [userId], references: [id])
+  relations   DistRelation[]
+  commissions Commission[]
+  withdraws   Withdraw[]
+
+  @@map("distributors")
+}
+
+model DistRelation {
+  id     BigInt   @id @default(autoincrement())
+  distId BigInt   @map("dist_id")
+  userId BigInt   @unique @map("user_id")
+  bindAt DateTime @default(now()) @map("bind_at")
+
+  distributor Distributor @relation(fields: [distId], references: [id])
+  user        User        @relation(fields: [userId], references: [id])
+
+  @@index([distId])
+  @@map("dist_relations")
+}
+
+model Commission {
+  id        BigInt    @id @default(autoincrement())
+  distId    BigInt    @map("dist_id")
+  orderId   BigInt    @unique @map("order_id")
+  amount    Decimal   @db.Decimal(10, 2)
+  rate      Decimal   @db.Decimal(5, 2)
+  status    Int       @default(0)
+  settleAt  DateTime? @map("settle_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  distributor Distributor @relation(fields: [distId], references: [id])
+  order       Order       @relation(fields: [orderId], references: [id])
+
+  @@index([distId, status])
+  @@map("commissions")
+}
+
+model Withdraw {
+  id          BigInt   @id @default(autoincrement())
+  distId      BigInt   @map("dist_id")
+  amount      Decimal  @db.Decimal(10, 2)
+  status      Int      @default(0)
+  accountInfo Json     @map("account_info")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  distributor Distributor @relation(fields: [distId], references: [id])
+
+  @@map("withdraws")
+}
+
+model Banner {
+  id       BigInt  @id @default(autoincrement())
+  imageUrl String  @map("image_url") @db.VarChar(512)
+  linkUrl  String? @map("link_url") @db.VarChar(512)
+  sort     Int     @default(0)
+  enabled  Int     @default(1)
+
+  @@map("banners")
+}
+
+model CsTicket {
+  id        BigInt   @id @default(autoincrement())
+  userId    BigInt?  @map("user_id")
+  wechatId  String?  @map("wechat_id") @db.VarChar(64)
+  type      String   @db.VarChar(32)
+  content   String   @db.Text
+  images    Json?
+  status    Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@map("cs_tickets")
+}
+
+model AdminUser {
+  id           BigInt @id @default(autoincrement())
+  username     String @unique @db.VarChar(64)
+  passwordHash String @map("password_hash") @db.VarChar(256)
+  role         String @db.VarChar(16)
+  status       Int    @default(1)
+
+  @@map("admin_users")
+}
+
+model AdminLog {
+  id        BigInt   @id @default(autoincrement())
+  adminId   BigInt   @map("admin_id")
+  action    String   @db.VarChar(64)
+  target    String?  @db.VarChar(128)
+  detail    Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("admin_logs")
+}

@@ -1,0 +1,23 @@
+{
+  "name": "wx-group",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "server"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev -w @wx-group/web",
+    "dev:admin": "npm run dev -w @wx-group/admin",
+    "dev:server": "npm run start:dev -w @wx-group/server",
+    "build:web": "npm run build -w @wx-group/web",
+    "build:admin": "npm run build -w @wx-group/admin",
+    "build:server": "npm run build -w @wx-group/server",
+    "build": "npm run build:web && npm run build:admin && npm run build:server",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

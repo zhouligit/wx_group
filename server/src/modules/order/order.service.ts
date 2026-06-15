@@ -1,0 +1,76 @@
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { PrismaService } from '../../prisma/prisma.service';
+
+@Injectable()
+export class OrderService {
+  constructor(private prisma: PrismaService) {}
+
+  private genOrderNo() {
+    return `WX${Date.now()}${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`;
+  }
+
+  async create(userId: bigint, dto: { productId: number; groupId?: number }) {
+    const product = await this.prisma.product.findUnique({
+      where: { id: BigInt(dto.productId) },
+    });
+    if (!product || product.enabled !== 1) {
+      throw new BadRequestException('INVALID_PRODUCT');
+    }
+    if (product.skuCode === 'UNLOCK' && !dto.groupId) {
+      throw new BadRequestException('GROUP_ID_REQUIRED');
+    }
+
+    const relation = await this.prisma.distRelation.findUnique({ where: { userId } });
+
+    const order = await this.prisma.order.create({
+      data: {
+        orderNo: this.genOrderNo(),
+        userId,
+        productId: product.id,
+        groupId: dto.groupId ? BigInt(dto.groupId) : null,
+        amount: product.price,
+        distId: relation?.distId ?? null,
+      },
+    });
+
+    return {
+      id: Number(order.id),
+      orderNo: order.orderNo,
+      productId: Number(order.productId),
+      groupId: order.groupId ? Number(order.groupId) : null,
+      amount: Number(order.amount),
+      payStatus: order.payStatus,
+      paidAt: order.paidAt,
+    };
+  }
+
+  async detail(userId: bigint, id: number) {
+    const order = await this.prisma.order.findFirst({
+      where: { id: BigInt(id), userId },
+    });
+    if (!order) throw new NotFoundException('ORDER_NOT_FOUND');
+    return {
+      id: Number(order.id),
+      orderNo: order.orderNo,
+      productId: Number(order.productId),
+      groupId: order.groupId ? Number(order.groupId) : null,
+      amount: Number(order.amount),
+      payStatus: order.payStatus,
+      paidAt: order.paidAt,
+    };
+  }
+
+  async markPaid(orderNo: string, wxTransactionId: string) {
+    const order = await this.prisma.order.findUnique({ where: { orderNo } });
+    if (!order || order.payStatus === 1) return order;
+    return this.prisma.order.update({
+      where: { orderNo },
+      data: {
+        payStatus: 1,
+        paidAt: new Date(),
+        wxTransactionId,
+        payChannel: 'mock',
+      },
+    });
+  }
+}

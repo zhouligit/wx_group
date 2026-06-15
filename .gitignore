@@ -1,0 +1,80 @@
+# ========== 依赖 ==========
+node_modules/
+
+# ========== 构建产物 ==========
+dist/
+build/
+*.tsbuildinfo
+
+# ========== 环境变量（保留 .env.example 作为模板） ==========
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# ========== 日志 ==========
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ========== 测试 / 覆盖率 ==========
+coverage/
+.nyc_output/
+*.lcov
+
+# ========== 编辑器 / IDE ==========
+.vscode/
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+*~
+
+# ========== 操作系统 ==========
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# ========== TypeScript / 工具缓存 ==========
+.cache/
+.parcel-cache/
+.turbo/
+.eslintcache
+.stylelintcache
+
+# ========== Vite / 前端 ==========
+*.local
+
+# ========== NestJS / 后端 ==========
+server/dist/
+
+# ========== Prisma ==========
+server/prisma/*.db
+server/prisma/*.db-journal
+
+# ========== Docker ==========
+docker-compose.override.yml
+
+# ========== 密钥 / 证书（切勿提交） ==========
+*.pem
+*.key
+*.p12
+*.pfx
+credentials.json
+secrets/
+
+# ========== 上传 / 临时文件 ==========
+uploads/
+tmp/
+temp/
+*.tmp
+*.bak
+
+# ========== Serverless / 其他 ==========
+.serverless/

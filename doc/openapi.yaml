@@ -1,0 +1,1141 @@
+openapi: 3.0.3
+info:
+  title: 微信群搭子导流平台 API
+  description: |
+    基于 PRD v1.3 / 技术方案 v1.0。
+    - Base URL: `/api/v1`
+    - 统一响应: `{ code, message, data, requestId }`
+    - C 端鉴权: `Authorization: Bearer <jwt>`
+    - 管理后台: `Authorization: Bearer <admin_jwt>`
+  version: 1.0.0
+  contact:
+    name: API Support
+
+servers:
+  - url: http://localhost:3000/api/v1
+    description: 本地开发
+  - url: https://www.example.com/api/v1
+    description: 生产环境
+
+tags:
+  - name: Health
+  - name: Auth
+  - name: Region
+  - name: Group
+  - name: Banner
+  - name: Product
+  - name: Order
+  - name: Payment
+  - name: Membership
+  - name: Attribution
+  - name: Distributor
+  - name: Ticket
+  - name: User
+  - name: Admin-Auth
+  - name: Admin-Group
+  - name: Admin-Product
+  - name: Admin-Order
+  - name: Admin-Distributor
+  - name: Admin-Banner
+  - name: Admin-Dashboard
+
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: 健康检查
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  /regions:
+    get:
+      tags: [Region]
+      summary: 获取地区列表
+      parameters:
+        - name: level
+          in: query
+          schema:
+            type: integer
+            enum: [1, 2, 3]
+          description: 1省 2市 3区
+        - name: parentId
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Region'
+
+  /groups:
+    get:
+      tags: [Group]
+      summary: 群列表
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - name: regionId
+          in: query
+          schema:
+            type: integer
+        - name: hot
+          in: query
+          schema:
+            type: boolean
+          description: true=热门群 Tab
+        - name: tagId
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - properties:
+                      data:
+                        $ref: '#/components/schemas/PaginatedGroups'
+
+  /groups/{id}:
+    get:
+      tags: [Group]
+      summary: 群详情（不含真实二维码）
+      parameters:
+        - $ref: '#/components/parameters/GroupId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - properties:
+                      data:
+                        $ref: '#/components/schemas/GroupDetail'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /groups/{id}/qrcode:
+    get:
+      tags: [Group]
+      summary: 获取群二维码（需登录且已付费）
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/GroupId'
+      responses:
+        '200':
+          description: 返回短时效签名 URL
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - properties:
+                      data:
+                        $ref: '#/components/schemas/QrcodeUrl'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: 未付费
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                code: 40301
+                message: PAYMENT_REQUIRED
+                data: null
+
+  /banners:
+    get:
+      tags: [Banner]
+      summary: 首页 Banner 列表
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Banner'
+
+  /products:
+    get:
+      tags: [Product]
+      summary: 会员/解锁 SKU 列表
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Product'
+
+  /auth/sms/send:
+    post:
+      tags: [Auth]
+      summary: 发送短信验证码
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phone]
+              properties:
+                phone:
+                  type: string
+                  example: '13800138000'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  /auth/sms/login:
+    post:
+      tags: [Auth]
+      summary: 手机号验证码登录
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phone, code]
+              properties:
+                phone:
+                  type: string
+                code:
+                  type: string
+                  example: '123456'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - properties:
+                      data:
+                        $ref: '#/components/schemas/AuthToken'
+
+  /auth/wechat/redirect:
+    get:
+      tags: [Auth]
+      summary: 微信 OAuth 跳转
+      parameters:
+        - name: returnUrl
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '302':
+          description: 重定向到微信授权页
+
+  /auth/wechat/callback:
+    get:
+      tags: [Auth]
+      summary: 微信 OAuth 回调
+      parameters:
+        - name: code
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: state
+          in: query
+          schema:
+            type: string
+      responses:
+        '302':
+          description: 重定向回前端并附带 token
+
+  /attribution/track:
+    post:
+      tags: [Attribution]
+      summary: 记录分销访问归因
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [inviteCode]
+              properties:
+                inviteCode:
+                  type: string
+                  example: ABC123
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  /user/me:
+    get:
+      tags: [User]
+      summary: 当前用户信息
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - properties:
+                      data:
+                        $ref: '#/components/schemas/UserProfile'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /membership/status:
+    get:
+      tags: [Membership]
+      summary: 会员权益状态
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - properties:
+                      data:
+                        $ref: '#/components/schemas/MembershipStatus'
+
+  /orders:
+    post:
+      tags: [Order]
+      summary: 创建订单
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOrderRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - properties:
+                      data:
+                        $ref: '#/components/schemas/Order'
+
+  /orders/{id}:
+    get:
+      tags: [Order]
+      summary: 订单详情
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - properties:
+                      data:
+                        $ref: '#/components/schemas/Order'
+
+  /payments/wechat/prepay:
+    post:
+      tags: [Payment]
+      summary: 发起微信支付
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [orderNo, scene]
+              properties:
+                orderNo:
+                  type: string
+                scene:
+                  type: string
+                  enum: [jsapi, h5]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - properties:
+                      data:
+                        $ref: '#/components/schemas/WechatPrepay'
+
+  /payments/wechat/notify:
+    post:
+      tags: [Payment]
+      summary: 微信支付回调（微信服务器调用）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: 处理成功
+
+  /tickets:
+    post:
+      tags: [Ticket]
+      summary: 提交客服工单
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTicketRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  /distributor/me:
+    get:
+      tags: [Distributor]
+      summary: 当前分销员信息
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - properties:
+                      data:
+                        $ref: '#/components/schemas/Distributor'
+
+  /distributor/apply:
+    post:
+      tags: [Distributor]
+      summary: 申请成为分销员
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  /distributor/stats:
+    get:
+      tags: [Distributor]
+      summary: 推广数据统计
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - properties:
+                      data:
+                        $ref: '#/components/schemas/DistributorStats'
+
+  /distributor/withdraw:
+    post:
+      tags: [Distributor]
+      summary: 申请提现
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amount, accountInfo]
+              properties:
+                amount:
+                  type: number
+                  format: float
+                  minimum: 50
+                accountInfo:
+                  type: object
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  /admin/auth/login:
+    post:
+      tags: [Admin-Auth]
+      summary: 管理员登录
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - properties:
+                      data:
+                        $ref: '#/components/schemas/AdminAuthToken'
+
+  /admin/dashboard:
+    get:
+      tags: [Admin-Dashboard]
+      summary: 仪表盘数据
+      security:
+        - AdminBearerAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  /admin/groups:
+    get:
+      tags: [Admin-Group]
+      summary: 群列表（管理）
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+    post:
+      tags: [Admin-Group]
+      summary: 创建群
+      security:
+        - AdminBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminGroupInput'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  /admin/groups/{id}:
+    put:
+      tags: [Admin-Group]
+      summary: 更新群
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/GroupId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminGroupInput'
+      responses:
+        '200':
+          description: OK
+    delete:
+      tags: [Admin-Group]
+      summary: 删除/隐藏群
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/GroupId'
+      responses:
+        '200':
+          description: OK
+
+  /admin/groups/import:
+    post:
+      tags: [Admin-Group]
+      summary: Excel 批量导入群
+      security:
+        - AdminBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: OK
+
+  /admin/products:
+    get:
+      tags: [Admin-Product]
+      summary: SKU 列表
+      security:
+        - AdminBearerAuth: []
+      responses:
+        '200':
+          description: OK
+    put:
+      tags: [Admin-Product]
+      summary: 更新 SKU 价格/状态
+      security:
+        - AdminBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Product'
+      responses:
+        '200':
+          description: OK
+
+  /admin/orders:
+    get:
+      tags: [Admin-Order]
+      summary: 订单列表
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - name: payStatus
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: OK
+
+  /admin/orders/{id}/refund:
+    post:
+      tags: [Admin-Order]
+      summary: 订单退款
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: OK
+
+  /admin/distributors:
+    get:
+      tags: [Admin-Distributor]
+      summary: 分销员列表
+      security:
+        - AdminBearerAuth: []
+      responses:
+        '200':
+          description: OK
+
+  /admin/distributors/{id}/approve:
+    post:
+      tags: [Admin-Distributor]
+      summary: 审核通过分销员
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: OK
+
+  /admin/commissions:
+    get:
+      tags: [Admin-Distributor]
+      summary: 佣金流水
+      security:
+        - AdminBearerAuth: []
+      responses:
+        '200':
+          description: OK
+
+  /admin/withdraws/{id}/approve:
+    post:
+      tags: [Admin-Distributor]
+      summary: 提现审核通过
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: OK
+
+  /admin/banners:
+    get:
+      tags: [Admin-Banner]
+      summary: Banner 列表
+      security:
+        - AdminBearerAuth: []
+      responses:
+        '200':
+          description: OK
+    post:
+      tags: [Admin-Banner]
+      summary: 创建 Banner
+      security:
+        - AdminBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Banner'
+      responses:
+        '200':
+          description: OK
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    AdminBearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    Page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    PageSize:
+      name: pageSize
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 50
+        default: 20
+    GroupId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+
+  responses:
+    Unauthorized:
+      description: 未登录
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiResponse'
+          example:
+            code: 40101
+            message: UNAUTHORIZED
+    NotFound:
+      description: 资源不存在
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiResponse'
+
+  schemas:
+    ApiResponse:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: integer
+          example: 0
+        message:
+          type: string
+          example: ok
+        data:
+          nullable: true
+        requestId:
+          type: string
+          format: uuid
+
+    Region:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        level:
+          type: integer
+        parentId:
+          type: integer
+          nullable: true
+
+    GroupListItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        coverUrl:
+          type: string
+          nullable: true
+        regionId:
+          type: integer
+        regionName:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        memberCount:
+          type: integer
+          nullable: true
+        status:
+          type: integer
+          description: 1正常 2已满 3失效
+
+    GroupDetail:
+      allOf:
+        - $ref: '#/components/schemas/GroupListItem'
+        - type: object
+          properties:
+            description:
+              type: string
+            qrcodeLocked:
+              type: boolean
+              description: true=未付费，不返回真实二维码
+
+    PaginatedGroups:
+      type: object
+      properties:
+        list:
+          type: array
+          items:
+            $ref: '#/components/schemas/GroupListItem'
+        total:
+          type: integer
+        page:
+          type: integer
+        pageSize:
+          type: integer
+
+    QrcodeUrl:
+      type: object
+      properties:
+        url:
+          type: string
+          format: uri
+        expiresAt:
+          type: string
+          format: date-time
+
+    Banner:
+      type: object
+      properties:
+        id:
+          type: integer
+        imageUrl:
+          type: string
+        linkUrl:
+          type: string
+          nullable: true
+        sort:
+          type: integer
+
+    Product:
+      type: object
+      properties:
+        id:
+          type: integer
+        skuCode:
+          type: string
+          enum: [MONTH, QUARTER, YEAR, UNLOCK]
+        name:
+          type: string
+        price:
+          type: number
+          format: float
+        durationDays:
+          type: integer
+          nullable: true
+
+    AuthToken:
+      type: object
+      properties:
+        token:
+          type: string
+        user:
+          $ref: '#/components/schemas/UserProfile'
+
+    AdminAuthToken:
+      type: object
+      properties:
+        token:
+          type: string
+        role:
+          type: string
+          enum: [super, ops, cs, finance]
+
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: integer
+        nickname:
+          type: string
+        avatar:
+          type: string
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        hasMembership:
+          type: boolean
+        membershipExpireAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    MembershipStatus:
+      type: object
+      properties:
+        active:
+          type: boolean
+        type:
+          type: string
+          nullable: true
+        expireAt:
+          type: string
+          format: date-time
+          nullable: true
+        unlockedGroupIds:
+          type: array
+          items:
+            type: integer
+
+    CreateOrderRequest:
+      type: object
+      required: [productId]
+      properties:
+        productId:
+          type: integer
+        groupId:
+          type: integer
+          description: 单次解锁 UNLOCK 时必填
+
+    Order:
+      type: object
+      properties:
+        id:
+          type: integer
+        orderNo:
+          type: string
+        productId:
+          type: integer
+        groupId:
+          type: integer
+          nullable: true
+        amount:
+          type: number
+        payStatus:
+          type: integer
+          description: 0待付 1已付 3已退
+        paidAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    WechatPrepay:
+      type: object
+      properties:
+        appId:
+          type: string
+        timeStamp:
+          type: string
+        nonceStr:
+          type: string
+        package:
+          type: string
+        signType:
+          type: string
+        paySign:
+          type: string
+        h5Url:
+          type: string
+          description: H5 支付跳转链接
+
+    CreateTicketRequest:
+      type: object
+      required: [type, content]
+      properties:
+        wechatId:
+          type: string
+        type:
+          type: string
+        content:
+          type: string
+        images:
+          type: array
+          items:
+            type: string
+
+    Distributor:
+      type: object
+      properties:
+        id:
+          type: integer
+        inviteCode:
+          type: string
+        status:
+          type: integer
+          description: 0待审 1正常 2禁用
+        inviteUrl:
+          type: string
+
+    DistributorStats:
+      type: object
+      properties:
+        todayVisits:
+          type: integer
+        totalVisits:
+          type: integer
+        todayOrders:
+          type: integer
+        totalCommission:
+          type: number
+        pendingCommission:
+          type: number
+
+    AdminGroupInput:
+      type: object
+      required: [name, regionId, qrcodePath]
+      properties:
+        name:
+          type: string
+        coverUrl:
+          type: string
+        regionId:
+          type: integer
+        description:
+          type: string
+        memberCount:
+          type: integer
+        qrcodePath:
+          type: string
+        status:
+          type: integer
+        isHot:
+          type: boolean
+        weight:
+          type: integer
+        tagIds:
+          type: array
+          items:
+            type: integer
