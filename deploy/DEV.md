@@ -289,6 +289,87 @@ npx pm2 startup
 npx pm2 save
 ```
 
+## 6. 域名访问（jiaoyou.yikuaikaixin.cn）
+
+域名 DNS 已指向服务器 IP 后，用 **Nginx 反代 80/443**，浏览器只访问域名，不再直接暴露 5173/3000。
+
+### 6.1 修改 `.env`（项目根目录 `/opt/wx_group/.env`）
+
+```env
+API_PORT=3000
+CORS_ORIGIN=https://jiaoyou.yikuaikaixin.cn
+WEB_BASE_URL=https://jiaoyou.yikuaikaixin.cn
+WECHAT_NOTIFY_URL=https://jiaoyou.yikuaikaixin.cn/api/v1/payments/wechat/notify
+```
+
+若暂未上 HTTPS，可先用 `http://jiaoyou.yikuaikaixin.cn`，上线证书后再改成 `https://`。
+
+改完后重启 API：
+
+```bash
+cd /opt/wx_group
+npm run stop:bg
+npm run start:bg
+```
+
+### 6.2 安装并配置 Nginx
+
+```bash
+sudo apt update
+sudo apt install -y nginx
+
+cd /opt/wx_group
+git pull   # 拉取 deploy/nginx.jiaoyou.conf
+
+sudo cp deploy/nginx.jiaoyou.conf /etc/nginx/sites-available/jiaoyou
+sudo ln -sf /etc/nginx/sites-available/jiaoyou /etc/nginx/sites-enabled/jiaoyou
+
+# 如存在 default 站点且冲突，可禁用：
+# sudo rm -f /etc/nginx/sites-enabled/default
+
+sudo nginx -t
+sudo systemctl enable nginx
+sudo systemctl reload nginx
+```
+
+云安全组放行 **80**、**443**（5173、3000 可不对公网开放，仅本机 Nginx 访问）。
+
+### 6.3 申请 HTTPS（推荐）
+
+```bash
+sudo apt install -y certbot python3-certbot-nginx
+sudo certbot --nginx -d jiaoyou.yikuaikaixin.cn
+```
+
+按提示选择「重定向 HTTP 到 HTTPS」。证书自动续期：
+
+```bash
+sudo certbot renew --dry-run
+```
+
+申请成功后，把 `.env` 里相关 URL 全部改为 `https://`，再 `npm run stop:bg && npm run start:bg`。
+
+### 6.4 验证
+
+```bash
+curl -I http://jiaoyou.yikuaikaixin.cn
+curl http://jiaoyou.yikuaikaixin.cn/api/v1/health
+```
+
+浏览器打开：**https://jiaoyou.yikuaikaixin.cn**
+
+### 6.5 架构示意
+
+```
+用户浏览器
+    ↓ 80/443
+Nginx (jiaoyou.yikuaikaixin.cn)
+    ├─ /        → 127.0.0.1:5173（C 端，或静态 dist）
+    └─ /api/    → 127.0.0.1:3000（NestJS API）
+```
+
+前端请求已是相对路径 `/api/v1`，无需改前端代码。
+
 | 服务 | 地址 |
 |------|------|
 | C 端 | http://localhost:5173 |
