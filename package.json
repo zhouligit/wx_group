@@ -16,7 +16,14 @@
     "docker:up": "bash scripts/infra-up.sh mysql redis",
     "docker:down": "bash scripts/infra-down.sh",
     "docker:logs": "docker compose logs -f 2>/dev/null || docker-compose logs -f",
-    "postinstall": "npm run prisma:generate -w @wx-group/server --if-present"
+    "postinstall": "npm run prisma:generate -w @wx-group/server --if-present",
+    "start:bg": "bash scripts/start-bg.sh",
+    "stop:bg": "bash scripts/stop-bg.sh",
+    "status:bg": "bash scripts/status-bg.sh",
+    "logs:bg": "bash scripts/logs-bg.sh"
+  },
+  "devDependencies": {
+    "pm2": "^5.4.3"
   },
   "engines": {
     "node": ">=20"

@@ -229,6 +229,49 @@ npm run build
 npm run start:prod
 ```
 
+## 5. 后台启动（推荐服务器部署）
+
+前后端一键后台运行（自动 build + PM2；无 PM2 时用 nohup）：
+
+```bash
+cd /opt/wx_group
+git pull
+npm install
+
+# 一键后台启动 API(3000) + Web(5173)
+npm run start:bg
+```
+
+常用命令：
+
+```bash
+npm run status:bg   # 查看状态
+npm run logs:bg     # 查看日志
+npm run stop:bg     # 停止
+```
+
+跳过构建（已 build 过）：
+
+```bash
+SKIP_BUILD=1 npm run start:bg
+```
+
+验证：
+
+```bash
+curl http://127.0.0.1:3000/api/v1/health
+curl -I http://127.0.0.1:5173
+```
+
+外网访问需在云安全组放行 **3000**（API）、**5173**（Web）。
+
+开机自启（PM2）：
+
+```bash
+npx pm2 startup
+npx pm2 save
+```
+
 | 服务 | 地址 |
 |------|------|
 | C 端 | http://localhost:5173 |
