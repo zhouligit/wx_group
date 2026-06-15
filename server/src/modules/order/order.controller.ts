@@ -27,6 +27,13 @@ export class OrderController {
     return ok(data);
   }
 
+  @Get('by-no/:orderNo')
+  @UseGuards(JwtAuthGuard)
+  async detailByNo(@Req() req: AuthRequest, @Param('orderNo') orderNo: string) {
+    const data = await this.orderService.detailByNo(req.user.id, orderNo);
+    return ok(data);
+  }
+
   @Get(':id')
   @UseGuards(JwtAuthGuard)
   async detail(@Req() req: AuthRequest, @Param('id', ParseIntPipe) id: number) {

@@ -18,6 +18,8 @@ import { AttributionModule } from './modules/attribution/attribution.module';
 import { DistributorModule } from './modules/distributor/distributor.module';
 import { TicketModule } from './modules/ticket/ticket.module';
 import { AdminModule } from './modules/admin/admin.module';
+import { WechatModule } from './wechat/wechat.module';
+import { AppConfigModule } from './modules/config/config.module';
 
 @Module({
   imports: [
@@ -44,6 +46,8 @@ import { AdminModule } from './modules/admin/admin.module';
     AttributionModule,
     DistributorModule,
     TicketModule,
+    WechatModule,
+    AppConfigModule,
     AdminModule,
   ],
 })

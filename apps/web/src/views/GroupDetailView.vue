@@ -4,13 +4,16 @@ import { useRoute, useRouter } from 'vue-router';
 import { showToast } from 'vant';
 import {
   createOrder,
+  displayPrice,
   fetchGroupDetail,
   fetchProducts,
+  fetchPublicConfig,
   fetchQrcode,
-  mockPay,
+  payOrder,
   type GroupDetail,
   type Product,
-} from '@/api';
+  type PublicConfig,
+} from '@/api/payment';
 import { useUserStore } from '@/stores/user';
 
 const route = useRoute();
@@ -19,19 +22,21 @@ const user = useUserStore();
 const group = ref<GroupDetail | null>(null);
 const qrcodeUrl = ref('');
 const products = ref<Product[]>([]);
+const config = ref<PublicConfig | null>(null);
 const paying = ref(false);
 
 const groupId = Number(route.params.id);
+const unlockProduct = ref<Product | null>(null);
 
 async function load() {
-  group.value = await fetchGroupDetail(groupId) as GroupDetail;
+  group.value = (await fetchGroupDetail(groupId)) as GroupDetail;
   if (!group.value.qrcodeLocked && user.isLoggedIn) {
     await loadQrcode();
   }
 }
 
 async function loadQrcode() {
-  const data = await fetchQrcode(groupId) as { url: string };
+  const data = (await fetchQrcode(groupId)) as { url: string };
   qrcodeUrl.value = data.url;
 }
 
@@ -41,8 +46,8 @@ async function buyUnlock() {
   try {
     const unlock = products.value.find((p) => p.skuCode === 'UNLOCK');
     if (!unlock) throw new Error('商品不存在');
-    const order = await createOrder(unlock.id, groupId) as { orderNo: string };
-    await mockPay(order.orderNo);
+    const order = (await createOrder(unlock.id, groupId)) as { orderNo: string };
+    await payOrder(order.orderNo, window.location.href);
     showToast('解锁成功');
     await load();
   } catch (e) {
@@ -53,7 +58,9 @@ async function buyUnlock() {
 }
 
 onMounted(async () => {
-  products.value = await fetchProducts() as Product[];
+  config.value = await fetchPublicConfig();
+  products.value = (await fetchProducts()) as Product[];
+  unlockProduct.value = products.value.find((p) => p.skuCode === 'UNLOCK') ?? null;
   await load();
 });
 </script>
@@ -69,9 +76,21 @@ onMounted(async () => {
     <div v-if="group.qrcodeLocked" class="qrcode-lock">
       <div class="placeholder">🔒</div>
       <div>开通会员查看入群二维码</div>
+      <div v-if="config?.paymentTestMode" style="margin-top:8px;font-size:12px;color:#ee0a24;">
+        测试阶段实付 ¥{{ config.paymentTestAmount }}
+      </div>
       <div style="margin-top:16px;display:flex;flex-direction:column;gap:8px;">
-        <van-button type="primary" block @click="router.push('/membership')">¥19.9 开通月会员</van-button>
-        <van-button plain type="primary" block :loading="paying" @click="buyUnlock">¥9.9 解锁本群</van-button>
+        <van-button type="primary" block @click="router.push('/membership')">开通会员</van-button>
+        <van-button
+          v-if="unlockProduct"
+          plain
+          type="primary"
+          block
+          :loading="paying"
+          @click="buyUnlock"
+        >
+          微信支付解锁本群 ¥{{ displayPrice(unlockProduct, config) }}
+        </van-button>
       </div>
     </div>
 

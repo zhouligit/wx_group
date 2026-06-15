@@ -377,6 +377,46 @@ Nginx (jiaoyou.yikuaikaixin.cn)
 | API | http://localhost:3000/api/v1 |
 | 健康检查 | http://localhost:3000/api/v1/health |
 
+## 7. 微信支付（测试 0.01 元）
+
+### 7.1 `.env` 配置
+
+```env
+PAYMENT_TEST_MODE=true
+PAYMENT_TEST_AMOUNT=0.01
+PAYMENT_USE_MOCK=false
+
+WECHAT_APP_ID=服务号AppID
+WECHAT_APP_SECRET=服务号Secret
+WECHAT_MCH_ID=商户号
+WECHAT_API_V3_KEY=APIv3密钥
+WECHAT_SERIAL_NO=商户API证书序列号
+WECHAT_PRIVATE_KEY_PATH=/opt/wx_group/certs/apiclient_key.pem
+WECHAT_NOTIFY_URL=https://jiaoyou.yikuaikaixin.cn/api/v1/payments/wechat/notify
+WEB_BASE_URL=https://jiaoyou.yikuaikaixin.cn
+```
+
+本地无商户号时设 `PAYMENT_USE_MOCK=true` 可走 mock。
+
+### 7.2 微信公众平台
+
+| 配置项 | 值 |
+|--------|-----|
+| 网页授权域名 | `jiaoyou.yikuaikaixin.cn` |
+| JS 安全域名 | `jiaoyou.yikuaikaixin.cn` |
+| 支付授权目录 | `https://jiaoyou.yikuaikaixin.cn/` |
+| OAuth 回调 | `https://jiaoyou.yikuaikaixin.cn/api/v1/auth/wechat/callback` |
+| 支付回调 | `https://jiaoyou.yikuaikaixin.cn/api/v1/payments/wechat/notify` |
+
+### 7.3 流程
+
+- **微信内**：OAuth 绑定 openid → JSAPI 支付 ¥0.01
+- **PC**：H5 支付（需开通 H5 域名）
+
+```bash
+npm run stop:bg && npm run start:bg
+```
+
 ## 5. 生产模式（Docker 全栈）
 
 先构建前端：

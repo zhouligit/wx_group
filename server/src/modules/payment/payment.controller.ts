@@ -1,5 +1,5 @@
-import { Body, Controller, Post, Req, UseGuards } from '@nestjs/common';
-import { IsIn, IsString } from 'class-validator';
+import { Body, Controller, Headers, Post, Req, UseGuards } from '@nestjs/common';
+import { IsIn, IsOptional, IsString } from 'class-validator';
 import { Request } from 'express';
 import { JwtAuthGuard } from '../../common/jwt-auth.guard';
 import { ok } from '../../common/response';
@@ -15,6 +15,10 @@ class PrepayDto {
 
   @IsIn(['jsapi', 'h5', 'mock'])
   scene!: 'jsapi' | 'h5' | 'mock';
+
+  @IsOptional()
+  @IsString()
+  returnUrl?: string;
 }
 
 @Controller('payments/wechat')
@@ -28,19 +32,35 @@ export class PaymentController {
   @Post('prepay')
   @UseGuards(JwtAuthGuard)
   async prepay(@Req() req: AuthRequest, @Body() dto: PrepayDto) {
-    const data = await this.paymentService.createPrepay(req.user.id, dto.orderNo, dto.scene);
+    const clientIp =
+      (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
+      req.socket.remoteAddress ||
+      '127.0.0.1';
+    const data = await this.paymentService.createPrepay(
+      req.user.id,
+      dto.orderNo,
+      dto.scene,
+      clientIp,
+      dto.returnUrl,
+    );
     return ok(data);
   }
 
   @Post('notify')
-  async notify(@Body() body: { orderNo?: string; transactionId?: string }) {
-    const order = await this.orderService.markPaid(
-      body.orderNo ?? '',
-      body.transactionId ?? 'mock-tx',
+  async notify(@Req() req: Request & { rawBody?: Buffer }, @Body() body: unknown) {
+    const result = await this.paymentService.handleWechatNotify(
+      body as { resource?: { ciphertext: string; associated_data?: string; nonce: string } },
     );
-    if (order) {
-      await this.membershipService.grantFromOrder(order.id);
-      await this.paymentService.createCommission(order.id);
+    if (result.handled && result.orderNo) {
+      const order = await this.orderService.markPaid(
+        result.orderNo,
+        result.transactionId ?? '',
+        'wechat',
+      );
+      if (order) {
+        await this.membershipService.grantFromOrder(order.id);
+        await this.paymentService.createCommission(order.id);
+      }
     }
     return { code: 'SUCCESS', message: 'OK' };
   }
@@ -48,7 +68,10 @@ export class PaymentController {
   @Post('mock-pay')
   @UseGuards(JwtAuthGuard)
   async mockPay(@Body() dto: PrepayDto) {
-    const order = await this.orderService.markPaid(dto.orderNo, `mock-${Date.now()}`);
+    if (!this.paymentService.useMockPay() && process.env.PAYMENT_ALLOW_MOCK !== 'true') {
+      return ok({ paid: false, message: '请使用微信支付' });
+    }
+    const order = await this.orderService.markPaid(dto.orderNo, `mock-${Date.now()}`, 'mock');
     if (order) {
       await this.membershipService.grantFromOrder(order.id);
       await this.paymentService.createCommission(order.id);
