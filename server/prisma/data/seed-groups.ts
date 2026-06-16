@@ -2,6 +2,7 @@ import { PrismaClient } from '@prisma/client';
 import { PROVINCES_LEVEL1 } from './provinces';
 import {
   GROUP_TEMPLATES,
+  PRIMARY_GROUP,
   PROVINCE_CITIES,
   regionShortName,
 } from './cities';
@@ -17,11 +18,19 @@ const HOT_CITY_LABELS = new Set([
   '西安',
   '南京',
   '重庆',
+  '天津',
+  '苏州',
+  '东莞',
+  '佛山',
 ]);
 
 function qrcodePath(cityLabel: string, kind: string) {
   const slug = `${cityLabel}-${kind}`.replace(/[^\w\u4e00-\u9fa5-]/g, '');
   return `private/qrcode/demo-${slug}.jpg`;
+}
+
+function primaryGroupName(cityLabel: string) {
+  return `${cityLabel}${PRIMARY_GROUP.suffix}`;
 }
 
 export async function seedTags(prisma: PrismaClient) {
@@ -116,11 +125,41 @@ async function ensureGroup(
   return group.id;
 }
 
+/** 兜底：按群名检查是否缺主群 */
+async function ensureMissingCityGroups(prisma: PrismaClient) {
+  let weight = 50;
+  for (const provinceName of PROVINCES_LEVEL1) {
+    const province = await prisma.region.findFirst({
+      where: { name: provinceName, level: 1 },
+    });
+    if (!province) continue;
+
+    const cities = PROVINCE_CITIES[provinceName] ?? [];
+    const cityLabels =
+      cities.length === 0
+        ? [regionShortName(provinceName)]
+        : cities.map((c) => regionShortName(c));
+
+    for (const cityLabel of cityLabels) {
+      const primaryName = primaryGroupName(cityLabel);
+      const exists = await prisma.group.findFirst({ where: { name: primaryName } });
+      if (!exists) {
+        await ensureGroup(prisma, {
+          regionId: province.id,
+          cityLabel,
+          template: PRIMARY_GROUP,
+          weight: weight--,
+          isHot: HOT_CITY_LABELS.has(cityLabel) ? 1 : 0,
+        });
+      }
+    }
+  }
+}
+
 export async function seedCityGroups(prisma: PrismaClient) {
   await seedTags(prisma);
   await seedCityRegions(prisma);
 
-  // 市群统一挂在省级 regionId，确保省份 Tab 能筛到（兼容旧 API）
   const cityRegions = await prisma.region.findMany({
     where: { level: 2, parentId: { not: null } },
     select: { id: true, parentId: true },
@@ -133,7 +172,7 @@ export async function seedCityGroups(prisma: PrismaClient) {
     });
   }
 
-  let weight = 1000;
+  let weight = 10000;
   for (const provinceName of PROVINCES_LEVEL1) {
     const province = await prisma.region.findFirst({
       where: { name: provinceName, level: 1 },
@@ -153,15 +192,26 @@ export async function seedCityGroups(prisma: PrismaClient) {
 
     for (const cityLabel of cityLabels) {
       const isHot = HOT_CITY_LABELS.has(cityLabel) ? 1 : 0;
-      for (let t = 0; t < GROUP_TEMPLATES.length; t++) {
+      // 每个城市必有主群
+      await ensureGroup(prisma, {
+        regionId: province.id,
+        cityLabel,
+        template: PRIMARY_GROUP,
+        weight: weight--,
+        isHot,
+      });
+      // 热门城市额外饭搭子群
+      if (isHot) {
         await ensureGroup(prisma, {
           regionId: province.id,
           cityLabel,
-          template: GROUP_TEMPLATES[t],
+          template: GROUP_TEMPLATES[1],
           weight: weight--,
-          isHot: t === 0 ? isHot : 0,
+          isHot: 0,
         });
       }
     }
   }
+
+  await ensureMissingCityGroups(prisma);
 }

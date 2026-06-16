@@ -21,7 +21,7 @@ export class GroupController {
   @Get()
   async list(
     @Query('page') page = '1',
-    @Query('pageSize') pageSize = '20',
+    @Query('pageSize') pageSize = '100',
     @Query('regionId') regionId?: string,
     @Query('hot') hot?: string,
   ) {

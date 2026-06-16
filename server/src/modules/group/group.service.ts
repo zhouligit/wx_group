@@ -134,9 +134,9 @@ export class GroupService {
   }
 }
 
-/** 从群名解析城市短名，如「广州饭搭子交流群」→ 广州 */
+/** 从群名解析城市短名 */
 function extractCityFromGroupName(name: string): string {
-  for (const suffix of ['饭搭子交流群', '徒步搭子群']) {
+  for (const suffix of ['搭子交流群', '饭搭子群', '饭搭子交流群', '徒步搭子群']) {
     if (name.endsWith(suffix)) return name.slice(0, -suffix.length);
   }
   return '';
