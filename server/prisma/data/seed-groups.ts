@@ -120,6 +120,19 @@ export async function seedCityGroups(prisma: PrismaClient) {
   await seedTags(prisma);
   await seedCityRegions(prisma);
 
+  // 市群统一挂在省级 regionId，确保省份 Tab 能筛到（兼容旧 API）
+  const cityRegions = await prisma.region.findMany({
+    where: { level: 2, parentId: { not: null } },
+    select: { id: true, parentId: true },
+  });
+  for (const city of cityRegions) {
+    if (!city.parentId) continue;
+    await prisma.group.updateMany({
+      where: { regionId: city.id },
+      data: { regionId: city.parentId },
+    });
+  }
+
   let weight = 1000;
   for (const provinceName of PROVINCES_LEVEL1) {
     const province = await prisma.region.findFirst({
@@ -128,30 +141,22 @@ export async function seedCityGroups(prisma: PrismaClient) {
     if (!province) continue;
 
     const cities = PROVINCE_CITIES[provinceName] ?? [];
-    const targets: { regionId: bigint; cityLabel: string }[] = [];
+    const cityLabels: string[] = [];
 
     if (cities.length === 0) {
-      targets.push({
-        regionId: province.id,
-        cityLabel: regionShortName(provinceName),
-      });
+      cityLabels.push(regionShortName(provinceName));
     } else {
       for (const cityName of cities) {
-        const city = await prisma.region.findFirst({
-          where: { name: cityName, level: 2, parentId: province.id },
-        });
-        if (city) {
-          targets.push({ regionId: city.id, cityLabel: regionShortName(cityName) });
-        }
+        cityLabels.push(regionShortName(cityName));
       }
     }
 
-    for (const target of targets) {
-      const isHot = HOT_CITY_LABELS.has(target.cityLabel) ? 1 : 0;
+    for (const cityLabel of cityLabels) {
+      const isHot = HOT_CITY_LABELS.has(cityLabel) ? 1 : 0;
       for (let t = 0; t < GROUP_TEMPLATES.length; t++) {
         await ensureGroup(prisma, {
-          regionId: target.regionId,
-          cityLabel: target.cityLabel,
+          regionId: province.id,
+          cityLabel,
           template: GROUP_TEMPLATES[t],
           weight: weight--,
           isHot: t === 0 ? isHot : 0,

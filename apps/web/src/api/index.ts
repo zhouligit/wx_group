@@ -27,6 +27,7 @@ export interface GroupItem {
   name: string;
   coverUrl?: string | null;
   regionName: string;
+  cityName?: string;
   tags: string[];
   memberCount?: number | null;
   status: number;

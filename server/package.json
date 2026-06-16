@@ -15,6 +15,7 @@
     "prisma:deploy": "bash scripts/with-env.sh prisma migrate deploy",
     "prisma:push": "bash scripts/with-env.sh prisma db push",
     "prisma:seed": "bash scripts/with-env.sh ts-node prisma/seed.ts",
+    "prisma:seed-groups": "bash scripts/with-env.sh ts-node prisma/seed-groups-only.ts",
     "prisma:pull": "bash scripts/with-env.sh prisma db pull"
   },
   "prisma": {

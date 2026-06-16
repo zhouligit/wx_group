@@ -60,7 +60,9 @@ onMounted(async () => {
       <div v-for="g in groups" :key="g.id" class="group-card" @click="router.push(`/group/${g.id}`)">
         <h3>{{ g.name }}</h3>
         <div class="meta">
-          {{ g.tags.join(' · ') || '搭子群' }} · {{ g.regionName }}
+          {{ g.tags.join(' · ') || '搭子群' }}
+          <span v-if="g.cityName"> · {{ g.cityName }}</span>
+          <span v-else-if="g.regionName"> · {{ g.regionName }}</span>
           <span v-if="g.memberCount"> · {{ g.memberCount }}人</span>
         </div>
       </div>

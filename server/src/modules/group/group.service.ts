@@ -126,9 +126,18 @@ export class GroupService {
       coverUrl: group.coverUrl,
       regionId: Number(group.regionId),
       regionName: group.region?.name ?? '',
+      cityName: extractCityFromGroupName(group.name),
       tags: group.groupTags?.map((gt: { tag: { name: string } }) => gt.tag.name) ?? [],
       memberCount: group.memberCount,
       status: group.status,
     };
   }
+}
+
+/** 从群名解析城市短名，如「广州饭搭子交流群」→ 广州 */
+function extractCityFromGroupName(name: string): string {
+  for (const suffix of ['饭搭子交流群', '徒步搭子群']) {
+    if (name.endsWith(suffix)) return name.slice(0, -suffix.length);
+  }
+  return '';
 }
