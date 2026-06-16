@@ -9,6 +9,7 @@ export class RegionService {
     return this.prisma.region.findMany({
       where: {
         enabled: 1,
+        name: { not: '热门群' },
         ...(level ? { level } : {}),
         ...(parentId ? { parentId: BigInt(parentId) } : {}),
       },

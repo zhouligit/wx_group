@@ -44,7 +44,7 @@ onMounted(async () => {
     <div style="display:flex;gap:8px;overflow-x:auto;margin-bottom:12px;padding-bottom:4px;">
       <button class="tab" :class="{ active: activeRegionId === null }" @click="selectRegion(null)">热门群</button>
       <button
-        v-for="r in regions.filter(x => x.name !== '热门群')"
+        v-for="r in regions"
         :key="r.id"
         class="tab"
         :class="{ active: activeRegionId === r.id }"

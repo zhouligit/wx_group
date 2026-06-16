@@ -3,6 +3,7 @@ import { existsSync } from 'fs';
 import { resolve } from 'path';
 import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
+import { PROVINCES_LEVEL1 } from './data/provinces';
 
 for (const p of [
   resolve(process.cwd(), '.env'),
@@ -27,16 +28,24 @@ async function main() {
     update: { passwordHash },
   });
 
-  const regions = [
-    '热门群', '北京市', '上海市', '广东省', '浙江省', '江苏省', '山东省', '四川省',
-  ];
-  for (let i = 0; i < regions.length; i++) {
-    const name = regions[i];
+  // 全国省级行政区（「热门群」为首页 Tab，不入库）
+  for (let i = 0; i < PROVINCES_LEVEL1.length; i++) {
+    const name = PROVINCES_LEVEL1[i];
     const existing = await prisma.region.findFirst({ where: { name, level: 1 } });
-    if (!existing) {
-      await prisma.region.create({ data: { name, level: 1, sort: i } });
+    if (existing) {
+      await prisma.region.update({
+        where: { id: existing.id },
+        data: { sort: i + 1, enabled: 1 },
+      });
+    } else {
+      await prisma.region.create({ data: { name, level: 1, sort: i + 1 } });
     }
   }
+  // 历史数据：禁用误写入库的「热门群」
+  await prisma.region.updateMany({
+    where: { name: '热门群', level: 1 },
+    data: { enabled: 0 },
+  });
 
   const products = [
     { skuCode: 'MONTH', name: '月会员', price: 19.9, durationDays: 30, sort: 1 },
