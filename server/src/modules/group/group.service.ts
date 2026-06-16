@@ -54,6 +54,7 @@ export class GroupService {
     pageSize: number;
     regionId?: number;
     hot?: boolean;
+    keyword?: string;
   }) {
     let regionFilter: { regionId: bigint } | { regionId: { in: bigint[] } } | undefined;
     if (params.regionId) {
@@ -66,10 +67,12 @@ export class GroupService {
       regionFilter = ids.length === 1 ? { regionId: ids[0] } : { regionId: { in: ids } };
     }
 
+    const keyword = params.keyword?.trim();
     const where = {
-      status: { in: [1, 2] },
+      status: { in: [1, 2] as number[] },
       ...(params.hot ? { isHot: 1 } : {}),
       ...regionFilter,
+      ...(keyword ? { name: { contains: keyword } } : {}),
     };
     const [list, total] = await Promise.all([
       this.prisma.group.findMany({

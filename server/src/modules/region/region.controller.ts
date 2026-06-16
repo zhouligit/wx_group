@@ -6,6 +6,12 @@ import { RegionService } from './region.service';
 export class RegionController {
   constructor(private regionService: RegionService) {}
 
+  @Get('search')
+  async search(@Query('q') q?: string, @Query('limit') limit?: string) {
+    const data = await this.regionService.search(q ?? '', limit ? Number(limit) : 20);
+    return ok(data);
+  }
+
   @Get()
   async list(
     @Query('level') level?: string,

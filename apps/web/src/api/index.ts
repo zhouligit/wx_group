@@ -50,7 +50,27 @@ export async function fetchRegions() {
   return api.get('/regions', { params: { level: 1 } });
 }
 
-export async function fetchGroups(params: { page?: number; pageSize?: number; regionId?: number; hot?: boolean }) {
+export interface RegionSearchItem {
+  id: number;
+  name: string;
+  level: number;
+  provinceId: number;
+  provinceName: string;
+  cityKeyword?: string;
+  label: string;
+}
+
+export async function searchRegions(q: string, limit = 20) {
+  return api.get('/regions/search', { params: { q, limit } }) as Promise<RegionSearchItem[]>;
+}
+
+export async function fetchGroups(params: {
+  page?: number;
+  pageSize?: number;
+  regionId?: number;
+  hot?: boolean;
+  keyword?: string;
+}) {
   return api.get('/groups', { params });
 }
 

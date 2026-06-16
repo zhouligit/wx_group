@@ -24,12 +24,14 @@ export class GroupController {
     @Query('pageSize') pageSize = '100',
     @Query('regionId') regionId?: string,
     @Query('hot') hot?: string,
+    @Query('keyword') keyword?: string,
   ) {
     const data = await this.groupService.list({
       page: Number(page),
       pageSize: Number(pageSize),
       regionId: regionId ? Number(regionId) : undefined,
       hot: hot === 'true',
+      keyword,
     });
     return ok(data);
   }
