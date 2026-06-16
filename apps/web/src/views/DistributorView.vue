@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { onMounted, ref, watch } from 'vue';
 import { showToast } from 'vant';
+import QRCode from 'qrcode';
 import api from '@/api';
 import { useUserStore } from '@/stores/user';
 import { useRouter } from 'vue-router';
@@ -9,11 +10,32 @@ const user = useUserStore();
 const router = useRouter();
 const info = ref<{ inviteUrl?: string; inviteCode?: string; status?: number } | null>(null);
 const applying = ref(false);
+const qrDataUrl = ref('');
 
 async function loadInfo() {
   if (!user.isLoggedIn) return;
   info.value = await api.get('/distributor/me');
 }
+
+async function generateQr(url: string) {
+  try {
+    qrDataUrl.value = await QRCode.toDataURL(url, {
+      width: 240,
+      margin: 2,
+      color: { dark: '#323233', light: '#ffffff' },
+    });
+  } catch {
+    qrDataUrl.value = '';
+  }
+}
+
+watch(
+  () => info.value?.inviteUrl,
+  (url) => {
+    if (url) generateQr(url);
+    else qrDataUrl.value = '';
+  },
+);
 
 async function apply() {
   applying.value = true;
@@ -57,6 +79,15 @@ function copyInviteCode() {
   if (info.value?.inviteCode) copyText(info.value.inviteCode, '邀请码');
 }
 
+function saveQrCode() {
+  if (!qrDataUrl.value) return;
+  const a = document.createElement('a');
+  a.href = qrDataUrl.value;
+  a.download = `推广二维码-${info.value?.inviteCode ?? 'dist'}.png`;
+  a.click();
+  showToast('已开始下载，手机端可长按图片保存');
+}
+
 onMounted(loadInfo);
 </script>
 
@@ -75,6 +106,18 @@ onMounted(loadInfo);
       </van-button>
 
       <div v-if="info?.inviteUrl" class="invite-card">
+        <div class="qr-section">
+          <div class="invite-label">推广二维码</div>
+          <p class="qr-desc">用户扫码进入即带你的推广参数，可发朋友圈、线下海报</p>
+          <div class="qr-wrap">
+            <img v-if="qrDataUrl" :src="qrDataUrl" alt="推广二维码" class="qr-img" />
+          </div>
+          <van-button block plain type="primary" @click="saveQrCode">保存二维码</van-button>
+          <p class="invite-tip">微信内可长按图片保存到相册</p>
+        </div>
+
+        <div class="divider" />
+
         <div class="invite-row">
           <span class="invite-label">邀请码</span>
           <span class="invite-code">{{ info.inviteCode }}</span>
@@ -84,7 +127,6 @@ onMounted(loadInfo);
         <div class="invite-label" style="margin-top:16px;">推广链接</div>
         <div class="invite-url" @click="copyInviteUrl">{{ info.inviteUrl }}</div>
         <van-button block type="primary" @click="copyInviteUrl">一键复制链接</van-button>
-        <p class="invite-tip">点击链接区域或上方按钮均可复制</p>
       </div>
     </template>
   </div>
@@ -102,6 +144,31 @@ onMounted(loadInfo);
   background: #fff;
   border-radius: 12px;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+}
+.qr-section {
+  text-align: center;
+}
+.qr-desc {
+  margin: 6px 0 12px;
+  font-size: 13px;
+  color: #969799;
+  line-height: 1.5;
+}
+.qr-wrap {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+.qr-img {
+  width: 240px;
+  height: 240px;
+  border-radius: 8px;
+  border: 1px solid #ebedf0;
+}
+.divider {
+  height: 1px;
+  background: #ebedf0;
+  margin: 20px 0;
 }
 .invite-row {
   display: flex;
