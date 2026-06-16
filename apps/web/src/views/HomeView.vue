@@ -14,6 +14,7 @@ async function loadGroups() {
   try {
     const data = await fetchGroups({
       page: 1,
+      pageSize: 50,
       regionId: activeRegionId.value ?? undefined,
       hot: activeRegionId.value === null,
     }) as { list: GroupItem[] };

@@ -49,7 +49,7 @@ export async function fetchRegions() {
   return api.get('/regions', { params: { level: 1 } });
 }
 
-export async function fetchGroups(params: { page?: number; regionId?: number; hot?: boolean }) {
+export async function fetchGroups(params: { page?: number; pageSize?: number; regionId?: number; hot?: boolean }) {
   return api.get('/groups', { params });
 }
 

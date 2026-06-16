@@ -4,6 +4,7 @@ import { resolve } from 'path';
 import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import { PROVINCES_LEVEL1 } from './data/provinces';
+import { seedCityGroups } from './data/seed-groups';
 
 for (const p of [
   resolve(process.cwd(), '.env'),
@@ -41,7 +42,6 @@ async function main() {
       await prisma.region.create({ data: { name, level: 1, sort: i + 1 } });
     }
   }
-  // 历史数据：禁用误写入库的「热门群」
   await prisma.region.updateMany({
     where: { name: '热门群', level: 1 },
     data: { enabled: 0 },
@@ -61,36 +61,11 @@ async function main() {
     });
   }
 
-  const beijing = await prisma.region.findFirst({ where: { name: '北京市' } });
-  if (beijing) {
-    const count = await prisma.group.count();
-    if (count === 0) {
-      await prisma.group.createMany({
-        data: [
-          {
-            name: '北京饭搭子交流群',
-            regionId: beijing.id,
-            description: '一起发现京城美食搭子',
-            memberCount: 200,
-            qrcodePath: 'private/qrcode/demo-beijing-food.jpg',
-            isHot: 1,
-            weight: 100,
-          },
-          {
-            name: '北京徒步搭子群',
-            regionId: beijing.id,
-            description: '周末徒步、露营、Citywalk',
-            memberCount: 120,
-            qrcodePath: 'private/qrcode/demo-beijing-hike.jpg',
-            isHot: 1,
-            weight: 90,
-          },
-        ],
-      });
-    }
-  }
+  await seedCityGroups(prisma);
 
-  console.log('Seed completed');
+  const groupCount = await prisma.group.count();
+  const cityCount = await prisma.region.count({ where: { level: 2 } });
+  console.log(`Seed completed: ${groupCount} groups, ${cityCount} cities`);
 }
 
 main()

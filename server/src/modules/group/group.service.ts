@@ -55,10 +55,21 @@ export class GroupService {
     regionId?: number;
     hot?: boolean;
   }) {
+    let regionFilter: { regionId: bigint } | { regionId: { in: bigint[] } } | undefined;
+    if (params.regionId) {
+      const provinceId = BigInt(params.regionId);
+      const children = await this.prisma.region.findMany({
+        where: { parentId: provinceId, enabled: 1, level: 2 },
+        select: { id: true },
+      });
+      const ids = [provinceId, ...children.map((c) => c.id)];
+      regionFilter = ids.length === 1 ? { regionId: ids[0] } : { regionId: { in: ids } };
+    }
+
     const where = {
       status: { in: [1, 2] },
       ...(params.hot ? { isHot: 1 } : {}),
-      ...(params.regionId ? { regionId: BigInt(params.regionId) } : {}),
+      ...regionFilter,
     };
     const [list, total] = await Promise.all([
       this.prisma.group.findMany({
