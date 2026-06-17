@@ -12,8 +12,13 @@ PM2="pm2"
 echo ">>> 停止旧进程..."
 "$PM2" delete wx-api wx-web 2>/dev/null || true
 pkill -f "node.*server/dist/main" 2>/dev/null || true
+pkill -f "node.*server/dist/src/main" 2>/dev/null || true
 pkill -f "vite preview" 2>/dev/null || true
-sleep 1
+sleep 2
+# 若 3000 仍被占用，打印便于排查
+if command -v ss >/dev/null 2>&1; then
+  ss -tlnp | grep ':3000 ' || true
+fi
 
 echo ">>> 安装依赖（npm ci，不修改 lock 文件）..."
 npm ci

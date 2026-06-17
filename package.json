@@ -20,6 +20,7 @@
     "start:bg": "bash scripts/start-bg.sh",
     "pull:deploy": "bash scripts/git-pull.sh",
     "redeploy": "bash scripts/redeploy.sh",
+    "verify:deploy": "bash scripts/verify-deploy.sh",
     "stop:bg": "bash scripts/stop-bg.sh",
     "status:bg": "bash scripts/status-bg.sh",
     "logs:bg": "bash scripts/logs-bg.sh"
