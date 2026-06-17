@@ -23,6 +23,7 @@ npm run build:server
 npm run build:web
 
 echo ">>> 启动..."
+"$PM2" flush wx-api wx-web 2>/dev/null || true
 "$PM2" start ecosystem.config.cjs
 "$PM2" save 2>/dev/null || true
 
