@@ -5,20 +5,20 @@ loadEnvFiles();
 
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
-import { json, urlencoded } from 'express';
+import { json } from 'express';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bodyParser: false });
+  // 仅 JSON；去掉 urlencoded，避免微信等请求 charset=UTF 报错
   app.use(
     json({
-      limit: '2mb',
+      limit: '10mb',
       verify: (req, _res, buf) => {
         (req as { rawBody?: Buffer }).rawBody = buf;
       },
     }),
   );
-  app.use(urlencoded({ extended: true, limit: '2mb' }));
   app.setGlobalPrefix('api/v1');
   app.enableCors({
     origin: process.env.CORS_ORIGIN?.split(',') ?? true,

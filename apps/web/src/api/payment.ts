@@ -55,9 +55,11 @@ export function displayPrice(product: Product, config: PublicConfig | null) {
   return product.price;
 }
 
-export async function payOrder(orderNo: string, returnUrl = window.location.href): Promise<void> {
+export async function payOrder(orderNo: string, returnUrl?: string): Promise<void> {
   const scene = isWechatBrowser() ? 'jsapi' : 'h5';
-  let prepay = await wechatPrepay(orderNo, scene, returnUrl);
+  const safeReturnUrl =
+    returnUrl ?? `${window.location.origin}${window.location.pathname}`;
+  let prepay = await wechatPrepay(orderNo, scene, safeReturnUrl);
 
   if (prepay.mock) {
     await mockPay(orderNo);
@@ -65,7 +67,7 @@ export async function payOrder(orderNo: string, returnUrl = window.location.href
   }
 
   if (prepay.needOAuth && prepay.oauthUrl) {
-    const { url } = await getWechatBindUrl(returnUrl);
+    const { url } = await getWechatBindUrl(safeReturnUrl);
     window.location.href = url;
     return;
   }

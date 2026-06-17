@@ -1,5 +1,5 @@
 import { Body, Controller, Headers, Post, Req, UseGuards } from '@nestjs/common';
-import { IsIn, IsOptional, IsString } from 'class-validator';
+import { IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
 import { Request } from 'express';
 import { JwtAuthGuard } from '../../common/jwt-auth.guard';
 import { ok } from '../../common/response';
@@ -18,6 +18,7 @@ class PrepayDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(512)
   returnUrl?: string;
 }
 
