@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { createDecipheriv, createPrivateKey, randomBytes, sign as cryptoSign } from 'crypto';
 import { existsSync, readFileSync } from 'fs';
+import https from 'https';
 
 export interface JsapiPayParams {
   appId: string;
@@ -113,19 +114,50 @@ export class WechatPayService implements OnModuleInit {
     );
   }
 
-  private async request<T>(method: string, urlPath: string, body?: object): Promise<T> {
+  private request<T>(method: string, urlPath: string, body?: object): Promise<T> {
     const bodyStr = body ? compactJson(body) : '';
-    const res = await fetch(`https://api.mch.weixin.qq.com${urlPath}`, {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-        Authorization: this.buildAuthorization(method, urlPath, bodyStr),
-        'User-Agent': 'wx-group-server',
-      },
-      body: body ? bodyStr : undefined,
+    const authorization = this.buildAuthorization(method, urlPath, bodyStr);
+    const bodyBuf = bodyStr ? Buffer.from(bodyStr, 'utf8') : null;
+
+    return new Promise((resolve, reject) => {
+      const req = https.request(
+        {
+          hostname: 'api.mch.weixin.qq.com',
+          path: urlPath,
+          method,
+          headers: {
+            Accept: 'application/json',
+            Authorization: authorization,
+            'User-Agent': 'wx-group-server',
+            ...(bodyBuf
+              ? {
+                  'Content-Type': 'application/json',
+                  'Content-Length': bodyBuf.length,
+                }
+              : {}),
+          },
+        },
+        (res) => {
+          let text = '';
+          res.on('data', (chunk) => {
+            text += chunk;
+          });
+          res.on('end', () => {
+            try {
+              resolve(this.parseWechatResponse<T>(method, urlPath, res.statusCode ?? 500, text));
+            } catch (e) {
+              reject(e);
+            }
+          });
+        },
+      );
+      req.on('error', (err) => reject(err));
+      if (bodyBuf) req.write(bodyBuf);
+      req.end();
     });
-    const text = await res.text();
+  }
+
+  private parseWechatResponse<T>(method: string, urlPath: string, status: number, text: string): T {
     let json: Record<string, unknown> = {};
     if (text) {
       try {
@@ -134,9 +166,9 @@ export class WechatPayService implements OnModuleInit {
         throw new InternalServerErrorException(`WECHAT_PAY_INVALID_RESPONSE: ${text.slice(0, 200)}`);
       }
     }
-    if (!res.ok) {
+    if (status >= 400) {
       const code = json.code as string | undefined;
-      const message = (json.message as string) || `WECHAT_PAY_HTTP_${res.status}`;
+      const message = (json.message as string) || `WECHAT_PAY_HTTP_${status}`;
       this.logger.error(
         `WeChat Pay ${method} ${urlPath} failed: ${code ?? ''} ${message} serial=${this.serialNo}`,
       );
