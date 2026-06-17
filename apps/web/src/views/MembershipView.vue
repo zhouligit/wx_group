@@ -24,7 +24,7 @@ async function buy(product: Product) {
   loadingSku.value = product.id;
   try {
     const order = (await createOrder(product.id)) as { orderNo: string };
-    await payOrder(order.orderNo, window.location.href);
+    await payOrder(order.orderNo);
     showToast('开通成功');
   } catch (e) {
     showToast((e as Error).message);

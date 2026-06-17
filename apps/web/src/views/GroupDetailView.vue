@@ -47,7 +47,7 @@ async function buyUnlock() {
     const unlock = products.value.find((p) => p.skuCode === 'UNLOCK');
     if (!unlock) throw new Error('商品不存在');
     const order = (await createOrder(unlock.id, groupId)) as { orderNo: string };
-    await payOrder(order.orderNo, window.location.href);
+    await payOrder(order.orderNo);
     showToast('解锁成功');
     await load();
   } catch (e) {
