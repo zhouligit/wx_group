@@ -414,6 +414,26 @@ WEB_BASE_URL=https://jiaoyou.yikuaikaixin.cn
 | OAuth 回调 | `https://jiaoyou.yikuaikaixin.cn/api/v1/auth/wechat/callback` |
 | 支付回调 | `https://jiaoyou.yikuaikaixin.cn/api/v1/payments/wechat/notify` |
 
+**网页授权域名验证文件**（报错「内容与下载文件不符」时）：
+
+1. 验证文件已在仓库 `apps/web/public/MP_verify_*.txt`，`npm run build:web` 后会复制到 `apps/web/dist/` 根目录
+2. Nginx 需优先返回该 txt 纯文本（见 `deploy/nginx.jiaoyou.conf` 里 `MP_verify` 规则）
+3. 服务器执行：
+
+```bash
+cd /opt/wx_group
+npm run pull:deploy
+npm run build:web
+sudo cp deploy/nginx.jiaoyou.conf /etc/nginx/sites-available/jiaoyou
+# 若 certbot 生成了 443 块，把 MP_verify 那段 location 也复制进 443 server
+sudo nginx -t && sudo systemctl reload nginx
+
+# 必须只返回 dvX7BShEkfek9dJv，不能是 HTML
+curl -s http://jiaoyou.yikuaikaixin.cn/MP_verify_dvX7BShEkfek9dJv.txt
+```
+
+若 curl 输出是 `<!DOCTYPE html>` 说明仍走了 SPA，需检查 Nginx 配置是否 reload。
+
 ### 7.3 流程
 
 - **微信内**：OAuth 绑定 openid → JSAPI 支付 ¥0.01
