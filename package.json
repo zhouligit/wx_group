@@ -24,6 +24,7 @@
     "check:site": "bash scripts/check-site.sh",
     "verify:wechat-pay": "bash scripts/verify-wechat-pay.sh",
     "probe:wechat-pay": "node scripts/wechat-pay-probe.mjs",
+    "probe:wechat-pay:py": "python3 scripts/wechat-pay-probe.py",
     "stop:bg": "bash scripts/stop-bg.sh",
     "status:bg": "bash scripts/status-bg.sh",
     "logs:bg": "bash scripts/logs-bg.sh"
