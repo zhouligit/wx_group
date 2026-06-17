@@ -235,12 +235,18 @@ npm run start:prod
 
 ```bash
 cd /opt/wx_group
-git pull
-npm install
 
-# 一键后台启动 API(3000) + Web(5173)
+# 推荐：拉代码 + 装依赖 + 构建 + 重启（npm ci 不会改 lock 文件）
+npm run redeploy
+
+# 或分步：
+npm run pull:deploy   # 安全 git pull（丢弃服务器上 npm 改动的 lock）
+npm ci                # 勿用 npm install，避免再次改动 package-lock.json
 npm run start:bg
 ```
+
+**为何不用 `git pull` + `npm install`？**  
+服务器上 `npm install` 常会改写 `package-lock.json`（甚至 workspace 的 `package.json`），下次 `git pull` 就会因本地有改动而失败。生产机应以仓库版本为准，用 `npm run pull:deploy` 和 `npm ci`。
 
 常用命令：
 

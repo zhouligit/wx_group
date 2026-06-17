@@ -4,6 +4,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
+bash "$ROOT/scripts/git-pull.sh"
+
 PM2="pm2"
 [ -x "$ROOT/node_modules/.bin/pm2" ] && PM2="$ROOT/node_modules/.bin/pm2"
 
@@ -13,8 +15,8 @@ pkill -f "node.*server/dist/main" 2>/dev/null || true
 pkill -f "vite preview" 2>/dev/null || true
 sleep 1
 
-echo ">>> 安装依赖..."
-npm install
+echo ">>> 安装依赖（npm ci，不修改 lock 文件）..."
+npm ci
 
 echo ">>> 构建..."
 npm run build:server
