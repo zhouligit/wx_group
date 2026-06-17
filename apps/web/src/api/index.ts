@@ -11,13 +11,28 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+function extractApiErrorMessage(err: unknown): string {
+  if (!err || typeof err !== 'object' || !('response' in err)) {
+    return err instanceof Error ? err.message : '请求失败';
+  }
+  const res = (err as { response?: { data?: unknown; status?: number } }).response;
+  const data = res?.data;
+  if (data && typeof data === 'object') {
+    const msg = (data as { message?: string }).message;
+    if (msg) return msg;
+  }
+  if (typeof data === 'string' && data) return data.slice(0, 200);
+  if (res?.status) return `请求失败 (${res.status})`;
+  return '网络错误，请稍后重试';
+}
+
 api.interceptors.response.use(
   (res) => {
     const body = res.data;
     if (body.code !== 0) return Promise.reject(new Error(body.message || '请求失败'));
     return body.data;
   },
-  (err) => Promise.reject(err),
+  (err) => Promise.reject(new Error(extractApiErrorMessage(err))),
 );
 
 export default api;

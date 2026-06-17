@@ -1,4 +1,4 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
 import { createSign, createDecipheriv, randomUUID } from 'crypto';
 import { readFileSync } from 'fs';
 
@@ -13,6 +13,8 @@ export interface JsapiPayParams {
 
 @Injectable()
 export class WechatPayService {
+  private readonly logger = new Logger(WechatPayService.name);
+
   isConfigured(): boolean {
     return !!(
       process.env.WECHAT_APP_ID &&
@@ -89,8 +91,11 @@ export class WechatPayService {
       }
     }
     if (!res.ok) {
+      const code = json.code as string | undefined;
+      const message = (json.message as string) || `WECHAT_PAY_HTTP_${res.status}`;
+      this.logger.error(`WeChat Pay ${method} ${urlPath} failed: ${code ?? ''} ${message}`);
       throw new InternalServerErrorException(
-        (json.message as string) || `WECHAT_PAY_HTTP_${res.status}`,
+        code ? `WECHAT_PAY: ${message} (${code})` : `WECHAT_PAY: ${message}`,
       );
     }
     return json as T;
