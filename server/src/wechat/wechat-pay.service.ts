@@ -1,4 +1,4 @@
-import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, Logger, OnModuleInit } from '@nestjs/common';
 import { createSign, createDecipheriv, randomUUID } from 'crypto';
 import { readFileSync } from 'fs';
 
@@ -12,8 +12,12 @@ export interface JsapiPayParams {
 }
 
 @Injectable()
-export class WechatPayService {
+export class WechatPayService implements OnModuleInit {
   private readonly logger = new Logger(WechatPayService.name);
+
+  onModuleInit() {
+    this.validateAtStartup();
+  }
 
   isConfigured(): boolean {
     return !!(
@@ -45,13 +49,41 @@ export class WechatPayService {
     return process.env.WECHAT_NOTIFY_URL ?? '';
   }
 
+  /** 优先用文件路径（与小程序部署一致）；仅当未配置 PATH 时才读 WECHAT_PRIVATE_KEY */
   private getPrivateKey(): string {
+    const path = process.env.WECHAT_PRIVATE_KEY_PATH;
+    if (path) {
+      try {
+        return readFileSync(path, 'utf8');
+      } catch {
+        throw new InternalServerErrorException(`WECHAT_PRIVATE_KEY_PATH_NOT_READABLE: ${path}`);
+      }
+    }
     if (process.env.WECHAT_PRIVATE_KEY) {
       return process.env.WECHAT_PRIVATE_KEY.replace(/\\n/g, '\n');
     }
-    const path = process.env.WECHAT_PRIVATE_KEY_PATH;
-    if (path) return readFileSync(path, 'utf8');
     throw new InternalServerErrorException('WECHAT_PRIVATE_KEY_NOT_CONFIGURED');
+  }
+
+  /** 启动时校验，便于排查 SIGN_ERROR */
+  validateAtStartup(): void {
+    if (!this.isConfigured()) return;
+    const keySource = process.env.WECHAT_PRIVATE_KEY_PATH
+      ? `file:${process.env.WECHAT_PRIVATE_KEY_PATH}`
+      : 'env:WECHAT_PRIVATE_KEY';
+    try {
+      this.getPrivateKey();
+      this.logger.log(
+        `WeChat Pay ready mchId=${this.mchId} appId=${this.appId} serial=${this.serialNo} key=${keySource}`,
+      );
+      if (process.env.WECHAT_PRIVATE_KEY && process.env.WECHAT_PRIVATE_KEY_PATH) {
+        this.logger.warn(
+          '同时配置了 WECHAT_PRIVATE_KEY 与 WECHAT_PRIVATE_KEY_PATH，已优先使用 PATH 文件',
+        );
+      }
+    } catch (e) {
+      this.logger.error(`WeChat Pay 配置无效: ${(e as Error).message}`);
+    }
   }
 
   private sign(message: string): string {

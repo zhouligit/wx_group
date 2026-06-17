@@ -22,6 +22,7 @@
     "redeploy": "bash scripts/redeploy.sh",
     "verify:deploy": "bash scripts/verify-deploy.sh",
     "check:site": "bash scripts/check-site.sh",
+    "verify:wechat-pay": "bash scripts/verify-wechat-pay.sh",
     "stop:bg": "bash scripts/stop-bg.sh",
     "status:bg": "bash scripts/status-bg.sh",
     "logs:bg": "bash scripts/logs-bg.sh"
