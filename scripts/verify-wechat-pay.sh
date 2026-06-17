@@ -46,6 +46,11 @@ if ! openssl pkey -in "$KEY_PATH" -check -noout 2>/dev/null; then
   exit 1
 fi
 echo "✓ 私钥格式有效"
+KEY_MD5="$(openssl md5 -r "$KEY_PATH" 2>/dev/null | awk '{print $1}')"
+echo "  私钥文件 md5: $KEY_MD5（可与小程序服务器 apiclient_key.pem 对比，必须一致）"
+echo ""
+echo "说明: 运行时只需 apiclient_key.pem + WECHAT_SERIAL_NO（与 wander_meet 相同）"
+echo "      apiclient_cert.pem 仅用于核对序列号，程序不读取该文件"
 
 CERT_PATH="$(dirname "$KEY_PATH")/apiclient_cert.pem"
 if [ -f "$CERT_PATH" ]; then
