@@ -1,6 +1,11 @@
-import { Injectable, InternalServerErrorException, Logger, OnModuleInit } from '@nestjs/common';
-import { createSign, createDecipheriv, randomUUID } from 'crypto';
-import { readFileSync } from 'fs';
+import {
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+  OnModuleInit,
+} from '@nestjs/common';
+import { createDecipheriv, createPrivateKey, randomBytes, sign as cryptoSign } from 'crypto';
+import { existsSync, readFileSync } from 'fs';
 
 export interface JsapiPayParams {
   appId: string;
@@ -11,9 +16,15 @@ export interface JsapiPayParams {
   paySign: string;
 }
 
+/** 与 wander_meet json.dumps(separators=(",", ":")) 一致 */
+function compactJson(body: object): string {
+  return JSON.stringify(body);
+}
+
 @Injectable()
 export class WechatPayService implements OnModuleInit {
   private readonly logger = new Logger(WechatPayService.name);
+  private privateKeyPem: string | null = null;
 
   onModuleInit() {
     this.validateAtStartup();
@@ -21,88 +32,89 @@ export class WechatPayService implements OnModuleInit {
 
   isConfigured(): boolean {
     return !!(
-      process.env.WECHAT_APP_ID &&
-      process.env.WECHAT_MCH_ID &&
-      process.env.WECHAT_API_V3_KEY &&
-      process.env.WECHAT_SERIAL_NO &&
-      (process.env.WECHAT_PRIVATE_KEY || process.env.WECHAT_PRIVATE_KEY_PATH)
+      process.env.WECHAT_APP_ID?.trim() &&
+      process.env.WECHAT_MCH_ID?.trim() &&
+      process.env.WECHAT_API_V3_KEY?.trim() &&
+      process.env.WECHAT_SERIAL_NO?.trim() &&
+      (process.env.WECHAT_PRIVATE_KEY?.trim() || process.env.WECHAT_PRIVATE_KEY_PATH?.trim())
     );
   }
 
   get appId() {
-    return process.env.WECHAT_APP_ID ?? '';
+    return process.env.WECHAT_APP_ID?.trim() ?? '';
   }
 
   private get mchId() {
-    return process.env.WECHAT_MCH_ID ?? '';
+    return process.env.WECHAT_MCH_ID?.trim() ?? '';
   }
 
   private get apiV3Key() {
-    return process.env.WECHAT_API_V3_KEY ?? '';
+    return process.env.WECHAT_API_V3_KEY?.trim() ?? '';
   }
 
   private get serialNo() {
-    return process.env.WECHAT_SERIAL_NO ?? '';
+    return process.env.WECHAT_SERIAL_NO?.trim() ?? '';
   }
 
   private get notifyUrl() {
-    return process.env.WECHAT_NOTIFY_URL ?? '';
+    return process.env.WECHAT_NOTIFY_URL?.trim() ?? '';
   }
 
-  /** 优先用文件路径（与小程序部署一致）；仅当未配置 PATH 时才读 WECHAT_PRIVATE_KEY */
-  private getPrivateKey(): string {
-    const path = process.env.WECHAT_PRIVATE_KEY_PATH;
-    if (path) {
-      try {
-        return readFileSync(path, 'utf8');
-      } catch {
-        throw new InternalServerErrorException(`WECHAT_PRIVATE_KEY_PATH_NOT_READABLE: ${path}`);
+  /** 与 wander_meet 相同：优先 WECHAT_PRIVATE_KEY 正文，否则读 PATH 文件 */
+  private loadPrivateKeyPem(): string {
+    if (this.privateKeyPem) return this.privateKeyPem;
+
+    let pem = (process.env.WECHAT_PRIVATE_KEY ?? '').trim().replace(/\\n/g, '\n');
+    const path = process.env.WECHAT_PRIVATE_KEY_PATH?.trim();
+    if (!pem && path) {
+      if (!existsSync(path)) {
+        throw new InternalServerErrorException(`WECHAT_PRIVATE_KEY_PATH_NOT_FOUND: ${path}`);
       }
+      pem = readFileSync(path, 'utf8');
     }
-    if (process.env.WECHAT_PRIVATE_KEY) {
-      return process.env.WECHAT_PRIVATE_KEY.replace(/\\n/g, '\n');
+    pem = pem.trim();
+    if (!pem) {
+      throw new InternalServerErrorException('WECHAT_PRIVATE_KEY_NOT_CONFIGURED');
     }
-    throw new InternalServerErrorException('WECHAT_PRIVATE_KEY_NOT_CONFIGURED');
+    this.privateKeyPem = pem;
+    return pem;
+  }
+
+  private sign(message: string): string {
+    const key = createPrivateKey(this.loadPrivateKeyPem());
+    return cryptoSign('RSA-SHA256', Buffer.from(message, 'utf8'), key).toString('base64');
   }
 
   /** 启动时校验，便于排查 SIGN_ERROR */
   validateAtStartup(): void {
     if (!this.isConfigured()) return;
-    const keySource = process.env.WECHAT_PRIVATE_KEY_PATH
-      ? `file:${process.env.WECHAT_PRIVATE_KEY_PATH}`
-      : 'env:WECHAT_PRIVATE_KEY';
+    const keySource = (process.env.WECHAT_PRIVATE_KEY ?? '').trim()
+      ? 'env:WECHAT_PRIVATE_KEY'
+      : `file:${process.env.WECHAT_PRIVATE_KEY_PATH?.trim()}`;
     try {
-      this.getPrivateKey();
+      this.loadPrivateKeyPem();
       this.logger.log(
         `WeChat Pay ready mchId=${this.mchId} appId=${this.appId} serial=${this.serialNo} key=${keySource}`,
       );
-      if (process.env.WECHAT_PRIVATE_KEY && process.env.WECHAT_PRIVATE_KEY_PATH) {
-        this.logger.warn(
-          '同时配置了 WECHAT_PRIVATE_KEY 与 WECHAT_PRIVATE_KEY_PATH，已优先使用 PATH 文件',
-        );
-      }
     } catch (e) {
       this.logger.error(`WeChat Pay 配置无效: ${(e as Error).message}`);
     }
   }
 
-  private sign(message: string): string {
-    const signer = createSign('RSA-SHA256');
-    signer.update(message);
-    signer.end();
-    return signer.sign(this.getPrivateKey(), 'base64');
-  }
-
   private buildAuthorization(method: string, urlPath: string, body: string): string {
     const timestamp = Math.floor(Date.now() / 1000).toString();
-    const nonce = randomUUID().replace(/-/g, '');
+    const nonce = randomBytes(16).toString('hex');
     const message = `${method}\n${urlPath}\n${timestamp}\n${nonce}\n${body}\n`;
     const signature = this.sign(message);
-    return `WECHATPAY2-SHA256-RSA2048 mchid="${this.mchId}",nonce_str="${nonce}",signature="${signature}",timestamp="${timestamp}",serial_no="${this.serialNo}"`;
+    return (
+      `WECHATPAY2-SHA256-RSA2048 mchid="${this.mchId}",` +
+      `nonce_str="${nonce}",signature="${signature}",` +
+      `timestamp="${timestamp}",serial_no="${this.serialNo}"`
+    );
   }
 
   private async request<T>(method: string, urlPath: string, body?: object): Promise<T> {
-    const bodyStr = body ? JSON.stringify(body) : '';
+    const bodyStr = body ? compactJson(body) : '';
     const res = await fetch(`https://api.mch.weixin.qq.com${urlPath}`, {
       method,
       headers: {
@@ -125,7 +137,9 @@ export class WechatPayService implements OnModuleInit {
     if (!res.ok) {
       const code = json.code as string | undefined;
       const message = (json.message as string) || `WECHAT_PAY_HTTP_${res.status}`;
-      this.logger.error(`WeChat Pay ${method} ${urlPath} failed: ${code ?? ''} ${message}`);
+      this.logger.error(
+        `WeChat Pay ${method} ${urlPath} failed: ${code ?? ''} ${message} serial=${this.serialNo}`,
+      );
       throw new InternalServerErrorException(
         code ? `WECHAT_PAY: ${message} (${code})` : `WECHAT_PAY: ${message}`,
       );
@@ -133,7 +147,6 @@ export class WechatPayService implements OnModuleInit {
     return json as T;
   }
 
-  /** 元 → 分 */
   amountToFen(amountYuan: number): number {
     return Math.round(amountYuan * 100);
   }
@@ -189,7 +202,7 @@ export class WechatPayService implements OnModuleInit {
 
   buildJsapiParams(prepayId: string): JsapiPayParams {
     const timeStamp = Math.floor(Date.now() / 1000).toString();
-    const nonceStr = randomUUID().replace(/-/g, '');
+    const nonceStr = randomBytes(16).toString('hex');
     const packageStr = `prepay_id=${prepayId}`;
     const message = `${this.appId}\n${timeStamp}\n${nonceStr}\n${packageStr}\n`;
     return {

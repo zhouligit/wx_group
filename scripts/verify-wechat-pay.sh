@@ -23,7 +23,8 @@ API_V3="$(load_env WECHAT_API_V3_KEY)"
 
 if [ -n "$INLINE_KEY" ] && [ -n "$KEY_PATH" ]; then
   echo "⚠ 同时配置了 WECHAT_PRIVATE_KEY 和 WECHAT_PRIVATE_KEY_PATH"
-  echo "  程序优先使用 PATH 文件；建议删除 .env 中的 WECHAT_PRIVATE_KEY 避免混淆"
+  echo "  与 wander_meet 相同：优先使用 WECHAT_PRIVATE_KEY 正文"
+  echo "  若小程序 .env 有 WECHAT_PAY_PRIVATE_KEY，请复制为 WECHAT_PRIVATE_KEY"
   echo ""
 fi
 
@@ -65,6 +66,18 @@ if [ -f "$CERT_PATH" ]; then
   else
     echo "✗ 序列号不一致 → SIGN_ERROR 最常见原因！"
     echo "  请把 .env 中 WECHAT_SERIAL_NO 改为: $CERT_SERIAL"
+  fi
+
+  echo ""
+  echo "========== 私钥与证书是否配对（SIGN_ERROR 关键）=========="
+  CERT_PUB="$(openssl x509 -in "$CERT_PATH" -noout -pubkey 2>/dev/null | openssl md5 | awk '{print $1}')"
+  KEY_PUB="$(openssl pkey -in "$KEY_PATH" -pubout 2>/dev/null | openssl md5 | awk '{print $1}')"
+  if [ -n "$CERT_PUB" ] && [ -n "$KEY_PUB" ] && [ "$CERT_PUB" = "$KEY_PUB" ]; then
+    echo "✓ 私钥与 apiclient_cert.pem 配对"
+  else
+    echo "✗ 私钥与证书不配对 → 必然 SIGN_ERROR！"
+    echo "  请从小程序服务器原样复制 apiclient_key.pem（与小程序同一文件）"
+    echo "  cert md5=$CERT_PUB  key md5=$KEY_PUB"
   fi
 else
   echo ""
