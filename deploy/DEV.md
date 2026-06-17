@@ -325,7 +325,8 @@ sudo apt update
 sudo apt install -y nginx
 
 cd /opt/wx_group
-git pull   # 拉取 deploy/nginx.jiaoyou.conf
+npm run pull:deploy
+npm run build:web   # Nginx 直接托管 dist，必须先构建
 
 sudo cp deploy/nginx.jiaoyou.conf /etc/nginx/sites-available/jiaoyou
 sudo ln -sf /etc/nginx/sites-available/jiaoyou /etc/nginx/sites-enabled/jiaoyou
@@ -355,14 +356,20 @@ sudo certbot renew --dry-run
 
 申请成功后，把 `.env` 里相关 URL 全部改为 `https://`，再 `npm run stop:bg && npm run start:bg`。
 
+**certbot 会新增 443 server 块**：请把 `deploy/nginx.jiaoyou.conf` 里的 `location`（MP_verify、`/api/`、`/` try_files）同步复制进 443 块，否则 HTTPS 可能 502 或深链 `/group/151` 404。
+
 ### 6.4 验证
 
 ```bash
+npm run check:site
 curl -I http://jiaoyou.yikuaikaixin.cn
+curl -I https://jiaoyou.yikuaikaixin.cn/group/151
 curl http://jiaoyou.yikuaikaixin.cn/api/v1/health
 ```
 
 浏览器打开：**https://jiaoyou.yikuaikaixin.cn**
+
+**502 / 无法访问**：多为 API(3000) 未启动，或 Nginx 仍反代已挂掉的 vite preview(5173)。当前配置改为 Nginx 直读 `apps/web/dist`，只需 API 在线；执行 `npm run redeploy`。
 
 ### 6.5 架构示意
 
