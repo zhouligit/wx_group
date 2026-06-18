@@ -20,6 +20,28 @@ export class MembershipService {
     };
   }
 
+  /** 已支付但解锁记录缺失时补写（支付回调延迟/失败） */
+  async repairUnlock(userId: bigint, groupId: number): Promise<boolean> {
+    const existing = await this.prisma.groupUnlock.findUnique({
+      where: { userId_groupId: { userId, groupId: BigInt(groupId) } },
+    });
+    if (existing) return true;
+
+    const order = await this.prisma.order.findFirst({
+      where: {
+        userId,
+        groupId: BigInt(groupId),
+        payStatus: 1,
+        product: { skuCode: 'UNLOCK' },
+      },
+      orderBy: { paidAt: 'desc' },
+      include: { product: true },
+    });
+    if (!order) return false;
+    await this.grantFromOrder(order.id);
+    return true;
+  }
+
   async grantFromOrder(orderId: bigint) {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },

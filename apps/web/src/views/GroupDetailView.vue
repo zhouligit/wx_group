@@ -42,6 +42,11 @@ async function loadQrcode() {
 
 async function buyUnlock() {
   if (!user.isLoggedIn) return router.push({ name: 'login', query: { redirect: route.fullPath } });
+  if (group.value && !group.value.qrcodeLocked) {
+    await loadQrcode();
+    showToast('您已解锁该群');
+    return;
+  }
   paying.value = true;
   try {
     const unlock = products.value.find((p) => p.skuCode === 'UNLOCK');
@@ -52,7 +57,12 @@ async function buyUnlock() {
     qrcodeUrl.value = '';
     await refreshAfterPay();
   } catch (e) {
-    showToast((e as Error).message);
+    const msg = (e as Error).message;
+    if (msg.includes('ALREADY_UNLOCKED') || msg.includes('ORDER_ALREADY_PAID')) {
+      await refreshAfterPay();
+      return;
+    }
+    showToast(msg);
   } finally {
     paying.value = false;
   }
@@ -89,7 +99,7 @@ onMounted(async () => {
 
     <div v-if="group.qrcodeLocked" class="qrcode-lock">
       <div class="placeholder">🔒</div>
-      <div>开通会员查看入群二维码</div>
+      <div>开通会员或支付解锁查看入群二维码</div>
       <div v-if="config?.paymentTestMode" style="margin-top:8px;font-size:12px;color:#ee0a24;">
         测试阶段实付 ¥{{ config.paymentTestAmount }}
       </div>

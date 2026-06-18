@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { Request } from 'express';
 import { JwtAuthGuard } from '../../common/jwt-auth.guard';
+import { OptionalJwtAuthGuard } from '../../common/optional-jwt-auth.guard';
 import { ok } from '../../common/response';
 import { GroupService } from './group.service';
 
@@ -37,6 +38,7 @@ export class GroupController {
   }
 
   @Get(':id')
+  @UseGuards(OptionalJwtAuthGuard)
   async detail(@Param('id', ParseIntPipe) id: number, @Req() req: AuthRequest) {
     const data = await this.groupService.detail(id, req.user?.id);
     return ok(data);

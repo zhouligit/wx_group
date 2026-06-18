@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { MembershipService } from '../membership/membership.service';
 import { WechatOAuthService } from '../../wechat/wechat-oauth.service';
 import { WechatPayService } from '../../wechat/wechat-pay.service';
 
@@ -14,6 +15,7 @@ export class PaymentService {
     private prisma: PrismaService,
     private wechatPay: WechatPayService,
     private wechatOAuth: WechatOAuthService,
+    private membershipService: MembershipService,
   ) {}
 
   useMockPay(): boolean {
@@ -33,7 +35,23 @@ export class PaymentService {
       include: { product: true },
     });
     if (!order) throw new NotFoundException('ORDER_NOT_FOUND');
-    if (order.payStatus !== 0) throw new BadRequestException('ORDER_NOT_PAYABLE');
+    if (order.payStatus !== 0) {
+      if (order.payStatus === 1) {
+        await this.membershipService.grantFromOrder(order.id);
+      }
+      throw new BadRequestException('ORDER_ALREADY_PAID');
+    }
+
+    if (order.product.skuCode === 'UNLOCK' && order.groupId) {
+      const unlocked = await this.prisma.groupUnlock.findUnique({
+        where: {
+          userId_groupId: { userId, groupId: order.groupId },
+        },
+      });
+      if (unlocked) {
+        throw new BadRequestException('ALREADY_UNLOCKED');
+      }
+    }
 
     if (scene === 'mock' || this.useMockPay()) {
       return {

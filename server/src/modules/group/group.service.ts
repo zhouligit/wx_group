@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import QRCode from 'qrcode';
 import { PrismaService } from '../../prisma/prisma.service';
+import { MembershipService } from '../membership/membership.service';
 
 type GroupListEntity = {
   id: bigint;
@@ -50,6 +51,7 @@ export class GroupService {
   constructor(
     private prisma: PrismaService,
     private entitlement: EntitlementService,
+    private membership: MembershipService,
   ) {}
 
   async list(params: {
@@ -106,6 +108,12 @@ export class GroupService {
     let qrcodeLocked = true;
     if (userId) {
       qrcodeLocked = !(await this.entitlement.canViewQrcode(userId, group.id));
+      if (qrcodeLocked) {
+        const repaired = await this.membership.repairUnlock(userId, id);
+        if (repaired) {
+          qrcodeLocked = !(await this.entitlement.canViewQrcode(userId, group.id));
+        }
+      }
     }
     return { ...this.toListItem(group), description: group.description, qrcodeLocked };
   }
