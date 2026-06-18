@@ -1,4 +1,7 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { existsSync, readFileSync } from 'fs';
+import { join } from 'path';
+import QRCode from 'qrcode';
 import { PrismaService } from '../../prisma/prisma.service';
 
 type GroupListEntity = {
@@ -116,10 +119,38 @@ export class GroupService {
     }
     await this.entitlement.assertCanViewQrcode(userId, group.id);
 
-    // TODO: 替换为 OSS 私有桶签名 URL
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
-    const url = `/mock-qrcode/${groupId}?token=dev&expires=${expiresAt.getTime()}`;
+    const png = await this.buildQrcodePng(group);
+    // 用 data URL 返回，img 标签无需再带 JWT
+    const url = `data:image/png;base64,${png.toString('base64')}`;
     return { url, expiresAt: expiresAt.toISOString() };
+  }
+
+  /** 优先读本地上传文件，否则生成占位二维码（运营需上传真实群码到 uploads/） */
+  private async buildQrcodePng(group: {
+    id: bigint;
+    name: string;
+    qrcodePath: string;
+  }): Promise<Buffer> {
+    const uploadsRoot = process.env.UPLOADS_DIR?.trim() || join(process.cwd(), 'uploads');
+    const relative = group.qrcodePath.replace(/^\/+/, '').replace(/^private\//, '');
+    const candidates = [
+      join(uploadsRoot, relative),
+      join(uploadsRoot, group.qrcodePath),
+      join(process.cwd(), group.qrcodePath),
+    ];
+    for (const file of candidates) {
+      if (existsSync(file)) {
+        return readFileSync(file);
+      }
+    }
+
+    if (/^https?:\/\//i.test(group.qrcodePath)) {
+      return QRCode.toBuffer(group.qrcodePath, { width: 512, margin: 1 });
+    }
+
+    const demoText = `加群：${group.name}`;
+    return QRCode.toBuffer(demoText, { width: 512, margin: 1, errorCorrectionLevel: 'M' });
   }
 
   private toListItem(group: GroupListEntity) {

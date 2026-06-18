@@ -48,13 +48,27 @@ async function buyUnlock() {
     if (!unlock) throw new Error('商品不存在');
     const order = (await createOrder(unlock.id, groupId)) as { orderNo: string };
     await payOrder(order.orderNo);
-    showToast('解锁成功');
-    await load();
+    showToast('支付成功');
+    qrcodeUrl.value = '';
+    await refreshAfterPay();
   } catch (e) {
     showToast((e as Error).message);
   } finally {
     paying.value = false;
   }
+}
+
+/** 支付后等待回调落库并刷新二维码（最多约 30s） */
+async function refreshAfterPay() {
+  for (let i = 0; i < 15; i++) {
+    await load();
+    if (group.value && !group.value.qrcodeLocked && qrcodeUrl.value) {
+      showToast('解锁成功');
+      return;
+    }
+    await sleep(2000);
+  }
+  showToast('已支付，请下拉刷新页面');
 }
 
 onMounted(async () => {
@@ -96,6 +110,7 @@ onMounted(async () => {
 
     <div v-else style="text-align:center;margin-top:16px;">
       <img v-if="qrcodeUrl" :src="qrcodeUrl" alt="群二维码" style="width:220px;height:220px;border-radius:8px;" />
+      <div v-else style="color:#969799;padding:24px;">二维码加载中...</div>
       <div style="margin-top:8px;color:#969799;">长按保存 · 微信扫一扫入群</div>
       <van-button style="margin-top:12px;" @click="router.push('/support')">加群失败？联系客服</van-button>
     </div>
