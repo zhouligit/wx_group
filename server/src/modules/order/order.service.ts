@@ -24,18 +24,19 @@ export class OrderService {
     if (!product || product.enabled !== 1) {
       throw new BadRequestException('INVALID_PRODUCT');
     }
-    if (product.skuCode === 'UNLOCK' && !dto.groupId) {
+    if (product.skuCode !== 'UNLOCK') {
+      throw new BadRequestException('MEMBERSHIP_DISABLED');
+    }
+    if (!dto.groupId) {
       throw new BadRequestException('GROUP_ID_REQUIRED');
     }
-    if (product.skuCode === 'UNLOCK' && dto.groupId) {
-      const unlocked = await this.prisma.groupUnlock.findUnique({
-        where: {
-          userId_groupId: { userId, groupId: BigInt(dto.groupId) },
-        },
-      });
-      if (unlocked) {
-        throw new BadRequestException('ALREADY_UNLOCKED');
-      }
+    const unlocked = await this.prisma.groupUnlock.findUnique({
+      where: {
+        userId_groupId: { userId, groupId: BigInt(dto.groupId) },
+      },
+    });
+    if (unlocked) {
+      throw new BadRequestException('ALREADY_UNLOCKED');
     }
 
     const relation = await this.prisma.distRelation.findUnique({ where: { userId } });

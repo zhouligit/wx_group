@@ -99,15 +99,13 @@ onMounted(async () => {
 
     <div v-if="group.qrcodeLocked" class="qrcode-lock">
       <div class="placeholder">🔒</div>
-      <div>开通会员或支付解锁查看入群二维码</div>
+      <div>支付解锁后可查看入群二维码</div>
       <div v-if="config?.paymentTestMode" style="margin-top:8px;font-size:12px;color:#ee0a24;">
         测试阶段实付 ¥{{ config.paymentTestAmount }}
       </div>
-      <div style="margin-top:16px;display:flex;flex-direction:column;gap:8px;">
-        <van-button type="primary" block @click="router.push('/membership')">开通会员</van-button>
+      <div style="margin-top:16px;">
         <van-button
           v-if="unlockProduct"
-          plain
           type="primary"
           block
           :loading="paying"

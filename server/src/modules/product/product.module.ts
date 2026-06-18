@@ -10,7 +10,7 @@ export class ProductController {
   @Get()
   async list() {
     const rows = await this.prisma.product.findMany({
-      where: { enabled: 1 },
+      where: { enabled: 1, skuCode: 'UNLOCK' },
       orderBy: { sort: 'asc' },
     });
     return ok(

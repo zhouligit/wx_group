@@ -48,16 +48,16 @@ async function main() {
   });
 
   const products = [
-    { skuCode: 'MONTH', name: '月会员', price: 19.9, durationDays: 30, sort: 1 },
-    { skuCode: 'QUARTER', name: '季会员', price: 49.9, durationDays: 90, sort: 2 },
-    { skuCode: 'YEAR', name: '年会员', price: 99, durationDays: 365, sort: 3 },
-    { skuCode: 'UNLOCK', name: '单群解锁', price: 9.9, durationDays: null, sort: 4 },
+    { skuCode: 'MONTH', name: '月会员', price: 19.9, durationDays: 30, sort: 1, enabled: 0 },
+    { skuCode: 'QUARTER', name: '季会员', price: 49.9, durationDays: 90, sort: 2, enabled: 0 },
+    { skuCode: 'YEAR', name: '年会员', price: 99, durationDays: 365, sort: 3, enabled: 0 },
+    { skuCode: 'UNLOCK', name: '单群解锁', price: 9.9, durationDays: null, sort: 4, enabled: 1 },
   ];
   for (const p of products) {
     await prisma.product.upsert({
       where: { skuCode: p.skuCode },
       create: p,
-      update: { price: p.price, name: p.name, durationDays: p.durationDays },
+      update: { price: p.price, name: p.name, durationDays: p.durationDays, enabled: p.enabled },
     });
   }
 

@@ -35,7 +35,6 @@ onMounted(async () => {
           is-link
           @click="router.push('/distributor')"
         />
-        <van-cell title="开通会员" is-link @click="router.push('/membership')" />
       </van-cell-group>
       <van-button style="margin-top:12px;" block @click="user.logout(); router.push('/')">退出登录</van-button>
     </div>
