@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { loginSms, sendSms } from '@/api';
+import { bindDistIfNeeded } from '@/utils/dist';
 
 export const useUserStore = defineStore('user', () => {
   const token = ref(localStorage.getItem('token') || '');
@@ -27,8 +28,14 @@ export const useUserStore = defineStore('user', () => {
     const data = await loginSms(phone, code) as { token: string; user: typeof profile.value };
     setToken(data.token);
     profile.value = data.user;
+    await bindDistIfNeeded();
     return data;
   }
 
-  return { token, profile, isLoggedIn, setToken, logout, sendCode, login };
+  async function syncDistBinding() {
+    if (!token.value) return;
+    await bindDistIfNeeded();
+  }
+
+  return { token, profile, isLoggedIn, setToken, logout, sendCode, login, syncDistBinding };
 });

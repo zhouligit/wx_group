@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { IsNumber, Min } from 'class-validator';
 import { Request } from 'express';
 import { JwtAuthGuard } from '../../common/jwt-auth.guard';
@@ -35,6 +35,36 @@ export class DistributorController {
   @UseGuards(JwtAuthGuard)
   async stats(@Req() req: AuthRequest) {
     return ok(await this.distributorService.stats(req.user.id));
+  }
+
+  @Get('referrals')
+  @UseGuards(JwtAuthGuard)
+  async referrals(
+    @Req() req: AuthRequest,
+    @Query('page') page = '1',
+    @Query('pageSize') pageSize = '20',
+  ) {
+    const data = await this.distributorService.listReferrals(
+      req.user.id,
+      Number(page) || 1,
+      Number(pageSize) || 20,
+    );
+    return ok(data);
+  }
+
+  @Get('commissions')
+  @UseGuards(JwtAuthGuard)
+  async commissions(
+    @Req() req: AuthRequest,
+    @Query('page') page = '1',
+    @Query('pageSize') pageSize = '20',
+  ) {
+    const data = await this.distributorService.listCommissions(
+      req.user.id,
+      Number(page) || 1,
+      Number(pageSize) || 20,
+    );
+    return ok(data);
   }
 
   @Post('withdraw')

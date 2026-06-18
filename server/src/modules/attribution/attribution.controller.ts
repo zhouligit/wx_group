@@ -1,6 +1,7 @@
-import { Body, Controller, Post, Req } from '@nestjs/common';
+import { Body, Controller, Post, Req, UseGuards } from '@nestjs/common';
 import { IsString } from 'class-validator';
 import { Request } from 'express';
+import { OptionalJwtAuthGuard } from '../../common/optional-jwt-auth.guard';
 import { ok } from '../../common/response';
 import { AttributionService } from './attribution.service';
 
@@ -16,6 +17,7 @@ export class AttributionController {
   constructor(private attributionService: AttributionService) {}
 
   @Post('track')
+  @UseGuards(OptionalJwtAuthGuard)
   async track(@Body() dto: TrackDto, @Req() req: AuthRequest) {
     const data = await this.attributionService.track(dto.inviteCode, req.user?.id);
     return ok(data);

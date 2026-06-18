@@ -1,6 +1,14 @@
 <script setup lang="ts">
+import { onMounted } from 'vue';
 import { RouterView } from 'vue-router';
 import AppNav from './components/AppNav.vue';
+import { useUserStore } from './stores/user';
+
+const user = useUserStore();
+
+onMounted(() => {
+  if (user.isLoggedIn) user.syncDistBinding();
+});
 </script>
 
 <template>
