@@ -10,8 +10,10 @@ const user = useUserStore();
 const router = useRouter();
 const info = ref<{ inviteUrl?: string; inviteCode?: string; status?: number } | null>(null);
 const applying = ref(false);
+const loadingInfo = ref(false);
 const qrDataUrl = ref('');
-const activeTab = ref(0);
+const pageTab = ref(0);
+const listTab = ref(0);
 
 const stats = ref<{
   totalVisits: number;
@@ -51,26 +53,42 @@ const commissions = ref<
 const loadingStats = ref(false);
 const loadingReferrals = ref(false);
 const loadingCommissions = ref(false);
+const dashboardError = ref('');
+
+const isDistributor = ref(false);
 
 async function loadInfo() {
   if (!user.isLoggedIn) return;
-  info.value = await api.get('/distributor/me');
+  loadingInfo.value = true;
+  try {
+    info.value = (await api.get('/distributor/me')) as typeof info.value;
+    isDistributor.value = !!info.value?.inviteUrl;
+    if (isDistributor.value) {
+      await loadDashboard();
+    }
+  } catch (e) {
+    info.value = null;
+    isDistributor.value = false;
+    showToast((e as Error).message);
+  } finally {
+    loadingInfo.value = false;
+  }
 }
 
 async function loadStats() {
-  if (!user.isLoggedIn || !info.value?.inviteUrl) return;
   loadingStats.value = true;
   try {
     stats.value = await api.get('/distributor/stats');
-  } catch {
+    dashboardError.value = '';
+  } catch (e) {
     stats.value = null;
+    dashboardError.value = (e as Error).message || '加载失败，请确认已部署最新版本';
   } finally {
     loadingStats.value = false;
   }
 }
 
 async function loadReferrals() {
-  if (!user.isLoggedIn || !info.value?.inviteUrl) return;
   loadingReferrals.value = true;
   try {
     const data = (await api.get('/distributor/referrals', {
@@ -85,7 +103,6 @@ async function loadReferrals() {
 }
 
 async function loadCommissions() {
-  if (!user.isLoggedIn || !info.value?.inviteUrl) return;
   loadingCommissions.value = true;
   try {
     const data = (await api.get('/distributor/commissions', {
@@ -100,15 +117,13 @@ async function loadCommissions() {
 }
 
 async function loadDashboard() {
-  await loadStats();
-  await loadReferrals();
-  await loadCommissions();
+  await Promise.all([loadStats(), loadReferrals(), loadCommissions()]);
 }
 
 async function generateQr(url: string) {
   try {
     qrDataUrl.value = await QRCode.toDataURL(url, {
-      width: 240,
+      width: 200,
       margin: 2,
       color: { dark: '#323233', light: '#ffffff' },
     });
@@ -120,12 +135,8 @@ async function generateQr(url: string) {
 watch(
   () => info.value?.inviteUrl,
   (url) => {
-    if (url) {
-      generateQr(url);
-      loadDashboard();
-    } else {
-      qrDataUrl.value = '';
-    }
+    if (url) generateQr(url);
+    else qrDataUrl.value = '';
   },
 );
 
@@ -133,8 +144,9 @@ async function apply() {
   applying.value = true;
   try {
     await api.post('/distributor/apply');
-    showToast('申请已提交');
+    showToast('申请成功');
     await loadInfo();
+    pageTab.value = 0;
   } catch (e) {
     showToast((e as Error).message);
   } finally {
@@ -159,7 +171,7 @@ async function copyText(text: string, label: string) {
     }
     showToast(`${label}已复制`);
   } catch {
-    showToast('复制失败，请长按链接手动复制');
+    showToast('复制失败，请长按手动复制');
   }
 }
 
@@ -177,7 +189,7 @@ function saveQrCode() {
   a.href = qrDataUrl.value;
   a.download = `推广二维码-${info.value?.inviteCode ?? 'dist'}.png`;
   a.click();
-  showToast('已开始下载，手机端可长按图片保存');
+  showToast('已开始下载，微信内可长按图片保存');
 }
 
 function fmtTime(iso: string | null) {
@@ -193,153 +205,165 @@ onMounted(loadInfo);
 </script>
 
 <template>
-  <div>
-    <div class="page-title">分销商</div>
-    <p class="desc">推广用户付费可获得 CPS 佣金（一级分销）。</p>
+  <div class="dist-page">
+    <div class="page-title">分销中心</div>
+    <p class="desc">查看推广用户与佣金；复制链接/二维码邀请好友。</p>
 
     <van-button v-if="!user.isLoggedIn" type="primary" block @click="router.push('/login')">
-      登录后申请
+      登录后进入分销中心
     </van-button>
 
-    <template v-else>
+    <van-loading v-else-if="loadingInfo" vertical style="padding:32px;">加载中...</van-loading>
+
+    <template v-else-if="!isDistributor">
       <van-button type="primary" block :loading="applying" @click="apply">
-        {{ info?.inviteUrl ? '已是分销商' : '申请成为分销商' }}
+        申请成为分销商
       </van-button>
+      <p class="hint">申请后即可获得专属推广链接，用户通过链接付费您可获得佣金。</p>
+    </template>
 
-      <div v-if="info?.inviteUrl" class="invite-card">
-        <div class="qr-section">
-          <div class="invite-label">推广二维码</div>
-          <p class="qr-desc">用户扫码进入即带你的推广参数</p>
-          <div class="qr-wrap">
-            <img v-if="qrDataUrl" :src="qrDataUrl" alt="推广二维码" class="qr-img" />
-          </div>
-          <van-button block plain type="primary" @click="saveQrCode">保存二维码</van-button>
-        </div>
-
-        <div class="divider" />
-
-        <div class="invite-row">
-          <span class="invite-label">邀请码</span>
-          <span class="invite-code">{{ info.inviteCode }}</span>
-          <van-button size="small" type="primary" plain @click="copyInviteCode">复制</van-button>
-        </div>
-
-        <div class="invite-label" style="margin-top:16px;">推广链接</div>
-        <div class="invite-url" @click="copyInviteUrl">{{ info.inviteUrl }}</div>
-        <van-button block type="primary" @click="copyInviteUrl">一键复制链接</van-button>
-      </div>
-
-      <div v-if="info?.inviteUrl" class="dashboard">
-        <div v-if="loadingStats" class="loading-tip">加载数据中...</div>
-        <div v-else-if="stats" class="stats-grid">
-          <div class="stat-item">
-            <div class="stat-num">{{ stats.totalVisits }}</div>
-            <div class="stat-label">绑定用户</div>
-          </div>
-          <div class="stat-item">
-            <div class="stat-num">{{ stats.paidUsers }}</div>
-            <div class="stat-label">已付费用户</div>
-          </div>
-          <div class="stat-item">
-            <div class="stat-num">{{ stats.totalOrders }}</div>
-            <div class="stat-label">推广订单</div>
-          </div>
-          <div class="stat-item highlight">
-            <div class="stat-num">{{ fmtMoney(stats.totalCommission) }}</div>
-            <div class="stat-label">累计佣金</div>
-          </div>
-          <div class="stat-item">
-            <div class="stat-num">{{ fmtMoney(stats.pendingCommission) }}</div>
-            <div class="stat-label">待结算</div>
-          </div>
-          <div class="stat-item">
-            <div class="stat-num">{{ fmtMoney(stats.totalOrderAmount) }}</div>
-            <div class="stat-label">推广成交额</div>
-          </div>
-        </div>
-
-        <van-tabs v-model:active="activeTab" shrink sticky offset-top="0">
-          <van-tab title="推广用户">
-            <van-loading v-if="loadingReferrals" vertical style="padding:24px;">加载中</van-loading>
-            <van-empty v-else-if="referrals.length === 0" description="暂无绑定用户" />
-            <div v-else class="list">
-              <div v-for="r in referrals" :key="r.userId" class="list-item">
-                <div class="list-head">
-                  <span class="phone">{{ r.phoneMasked }}</span>
-                  <van-tag v-if="r.hasPaid" type="success" size="medium">已付费</van-tag>
-                  <van-tag v-else type="default" size="medium">未付费</van-tag>
-                </div>
-                <div class="list-meta">
-                  绑定：{{ fmtTime(r.bindAt) }}
-                </div>
-                <div v-if="r.hasPaid" class="list-meta">
-                  付费 {{ r.paidOrderCount }} 笔 · 成交额 {{ fmtMoney(r.paidAmount) }} · 佣金
-                  {{ fmtMoney(r.commissionAmount) }}
-                </div>
-                <div v-if="r.lastPaidAt" class="list-meta">最近付费：{{ fmtTime(r.lastPaidAt) }}</div>
-              </div>
+    <template v-else>
+      <van-tabs v-model:active="pageTab" type="card" class="main-tabs">
+        <van-tab title="推广数据">
+          <div class="section-head">数据概览</div>
+          <div v-if="loadingStats" class="loading-tip">加载数据中...</div>
+          <div v-else-if="dashboardError" class="error-tip">{{ dashboardError }}</div>
+          <div v-else-if="stats" class="stats-grid">
+            <div class="stat-item">
+              <div class="stat-num">{{ stats.totalVisits }}</div>
+              <div class="stat-label">绑定用户</div>
             </div>
-          </van-tab>
+            <div class="stat-item">
+              <div class="stat-num">{{ stats.paidUsers }}</div>
+              <div class="stat-label">已付费</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-num">{{ stats.totalOrders }}</div>
+              <div class="stat-label">推广订单</div>
+            </div>
+            <div class="stat-item highlight">
+              <div class="stat-num">{{ fmtMoney(stats.totalCommission) }}</div>
+              <div class="stat-label">累计佣金</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-num">{{ fmtMoney(stats.pendingCommission) }}</div>
+              <div class="stat-label">待结算</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-num">{{ fmtMoney(stats.totalOrderAmount) }}</div>
+              <div class="stat-label">成交额</div>
+            </div>
+          </div>
 
-          <van-tab title="佣金明细">
-            <van-loading v-if="loadingCommissions" vertical style="padding:24px;">加载中</van-loading>
-            <van-empty v-else-if="commissions.length === 0" description="暂无佣金记录" />
-            <div v-else class="list">
-              <div v-for="c in commissions" :key="c.orderNo" class="list-item">
-                <div class="list-head">
-                  <span class="phone">{{ c.phoneMasked }}</span>
-                  <span class="commission">{{ fmtMoney(c.commissionAmount) }}</span>
-                </div>
-                <div class="list-meta">{{ c.productName }} · 订单 {{ fmtMoney(c.orderAmount) }}</div>
-                <div class="list-meta">
-                  {{ c.orderNo }} · {{ c.statusLabel }} · {{ fmtTime(c.paidAt) }}
+          <div class="section-head">明细列表</div>
+          <van-tabs v-model:active="listTab" shrink>
+            <van-tab title="推广用户">
+              <van-loading v-if="loadingReferrals" vertical style="padding:24px;">加载中</van-loading>
+              <van-empty v-else-if="referrals.length === 0" description="暂无推广用户，去分享推广链接吧" />
+              <div v-else class="list">
+                <div v-for="r in referrals" :key="r.userId" class="list-item">
+                  <div class="list-head">
+                    <span class="phone">{{ r.phoneMasked }}</span>
+                    <van-tag v-if="r.hasPaid" type="success">已付费</van-tag>
+                    <van-tag v-else>未付费</van-tag>
+                  </div>
+                  <div class="list-meta">绑定时间：{{ fmtTime(r.bindAt) }}</div>
+                  <div v-if="r.hasPaid" class="list-meta">
+                    付费 {{ r.paidOrderCount }} 笔 · {{ fmtMoney(r.paidAmount) }} · 佣金
+                    {{ fmtMoney(r.commissionAmount) }}
+                  </div>
                 </div>
               </div>
+            </van-tab>
+            <van-tab title="佣金明细">
+              <van-loading v-if="loadingCommissions" vertical style="padding:24px;">加载中</van-loading>
+              <van-empty v-else-if="commissions.length === 0" description="暂无佣金，用户付费后会出现在这里" />
+              <div v-else class="list">
+                <div v-for="c in commissions" :key="c.orderNo" class="list-item">
+                  <div class="list-head">
+                    <span class="phone">{{ c.phoneMasked }}</span>
+                    <span class="commission">{{ fmtMoney(c.commissionAmount) }}</span>
+                  </div>
+                  <div class="list-meta">{{ c.productName }} · 订单 {{ fmtMoney(c.orderAmount) }}</div>
+                  <div class="list-meta">{{ fmtTime(c.paidAt) }} · {{ c.statusLabel }}</div>
+                </div>
+              </div>
+            </van-tab>
+          </van-tabs>
+
+          <van-button block plain type="primary" style="margin-top:12px;" @click="loadDashboard">
+            刷新数据
+          </van-button>
+        </van-tab>
+
+        <van-tab title="推广工具">
+          <div class="invite-card">
+            <div class="invite-row">
+              <span class="invite-label">邀请码</span>
+              <span class="invite-code">{{ info?.inviteCode }}</span>
+              <van-button size="small" type="primary" plain @click="copyInviteCode">复制</van-button>
             </div>
-          </van-tab>
-        </van-tabs>
-      </div>
+            <div class="invite-label" style="margin-top:12px;">推广链接</div>
+            <div class="invite-url" @click="copyInviteUrl">{{ info?.inviteUrl }}</div>
+            <van-button block type="primary" @click="copyInviteUrl">复制推广链接</van-button>
+            <div class="qr-section">
+              <div class="invite-label" style="margin-top:16px;">推广二维码</div>
+              <div class="qr-wrap">
+                <img v-if="qrDataUrl" :src="qrDataUrl" alt="推广二维码" class="qr-img" />
+              </div>
+              <van-button block plain type="primary" @click="saveQrCode">保存二维码</van-button>
+            </div>
+          </div>
+        </van-tab>
+      </van-tabs>
     </template>
   </div>
 </template>
 
 <style scoped>
+.dist-page {
+  padding-bottom: 24px;
+}
 .desc {
   color: #646566;
   line-height: 1.6;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
+  font-size: 14px;
 }
-.invite-card {
-  margin-top: 16px;
-  padding: 16px;
-  background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
-}
-.qr-section {
-  text-align: center;
-}
-.qr-desc {
-  margin: 6px 0 12px;
+.hint {
+  margin-top: 12px;
   font-size: 13px;
   color: #969799;
   line-height: 1.5;
 }
+.main-tabs {
+  margin-top: 12px;
+}
+.section-head {
+  margin: 16px 0 10px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #323233;
+}
+.invite-card {
+  margin-top: 12px;
+  padding: 16px;
+  background: #fff;
+  border-radius: 12px;
+}
+.qr-section {
+  text-align: center;
+}
 .qr-wrap {
   display: flex;
   justify-content: center;
-  margin-bottom: 12px;
+  margin: 12px 0;
 }
 .qr-img {
-  width: 240px;
-  height: 240px;
+  width: 200px;
+  height: 200px;
   border-radius: 8px;
   border: 1px solid #ebedf0;
-}
-.divider {
-  height: 1px;
-  background: #ebedf0;
-  margin: 20px 0;
 }
 .invite-row {
   display: flex;
@@ -361,39 +385,38 @@ onMounted(loadInfo);
   padding: 12px;
   background: #f7f8fa;
   border-radius: 8px;
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1.6;
   word-break: break-all;
-  color: #323233;
 }
-.dashboard {
-  margin-top: 16px;
-}
-.loading-tip {
+.loading-tip,
+.error-tip {
   text-align: center;
-  color: #969799;
   padding: 16px;
+  font-size: 13px;
+  color: #969799;
+}
+.error-tip {
+  color: #ee0a24;
 }
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
-  margin-bottom: 16px;
+  gap: 8px;
 }
 .stat-item {
   background: #fff;
   border-radius: 10px;
-  padding: 12px 8px;
+  padding: 10px 6px;
   text-align: center;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  border: 1px solid #ebedf0;
 }
 .stat-item.highlight .stat-num {
   color: #ee0a24;
 }
 .stat-num {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
-  color: #323233;
 }
 .stat-label {
   margin-top: 4px;
@@ -401,20 +424,20 @@ onMounted(loadInfo);
   color: #969799;
 }
 .list {
-  padding: 8px 0 16px;
+  padding: 8px 0;
 }
 .list-item {
   background: #fff;
   border-radius: 10px;
   padding: 12px;
-  margin-bottom: 10px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  margin-bottom: 8px;
+  border: 1px solid #ebedf0;
 }
 .list-head {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 .phone {
   font-weight: 600;
@@ -427,6 +450,6 @@ onMounted(loadInfo);
 .list-meta {
   font-size: 12px;
   color: #969799;
-  line-height: 1.6;
+  line-height: 1.5;
 }
 </style>

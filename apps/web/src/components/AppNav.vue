@@ -8,7 +8,7 @@ const tabs = [
   { to: '/', label: '微信群' },
   { to: '/support', label: '客服' },
   { to: '/activities', label: '线下游玩' },
-  { to: '/distributor', label: '分销商' },
+  { to: '/distributor', label: '分销中心' },
 ];
 
 function isActive(path: string) {
